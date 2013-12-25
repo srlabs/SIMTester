@@ -44,7 +44,7 @@ public class Auth {
         }
 
         CommandAPDU verifyCHV = new CommandAPDU((byte) 0xA0, (byte) 0x20, (byte) 0x00, (byte) offset, pinData);
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(verifyCHV);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(verifyCHV);
 
         switch ((short) response.getSW()) {
             case (short) 0x9000:
@@ -78,7 +78,7 @@ public class Auth {
         }
 
         CommandAPDU enableCHV1 = new CommandAPDU((byte) 0xA0, (byte) 0x28, (byte) 0x00, (byte) 0x01, pinData);
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(enableCHV1);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(enableCHV1);
 
         switch ((short) response.getSW()) {
             case (short) 0x9000:
@@ -113,7 +113,7 @@ public class Auth {
         }
 
         CommandAPDU disableCHV = new CommandAPDU((byte) 0xA0, (byte) 0x26, (byte) 0x00, (byte) offset, pinData);
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(disableCHV);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(disableCHV);
 
         switch ((short) response.getSW()) {
             case (short) 0x9000:

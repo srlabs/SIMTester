@@ -94,7 +94,7 @@ public class FileManagement {
         }
         
         CommandAPDU select = new CommandAPDU((byte) 0xA0, (byte) 0xA4, (byte) 0x00, (byte) 0x00, fileId);
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(select);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(select);
 
         return response;
     }

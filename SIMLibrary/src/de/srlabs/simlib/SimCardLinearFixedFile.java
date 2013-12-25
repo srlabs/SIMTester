@@ -30,7 +30,7 @@ public class SimCardLinearFixedFile extends SimCardElementaryFile {
 
     public byte[] getRecord(int recordNr) throws CardException {
         CommandAPDU readRecord = new CommandAPDU((byte) 0xA0, (byte) 0xB2, (byte) recordNr, (byte) 0x04, (byte) _recordLength); // Read Record APDU
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(readRecord);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(readRecord);
 
         switch ((short) response.getSW()) {
             case (short) 0x9000:

@@ -39,7 +39,7 @@ public class OTASMS {
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("CommandAPDU: " + HexToolkit.toString(envelope.getBytes())));
         }
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(envelope);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(envelope);
 
         return response;
 

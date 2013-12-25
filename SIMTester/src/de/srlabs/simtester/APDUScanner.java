@@ -31,15 +31,15 @@ public class APDUScanner {
                 otasms.setCommandPacket(cp);
                 ResponseAPDU cla_res = otasms.send();
                 byte[] response_data = getResponseData(cla_res);
-                
+
                 if (!level2) {
                     writer.writeLine(HexToolkit.toString(ep.getTAR()), cp.getBytes(), response_data);
                 }
-                
+
                 if (null == response_data) {
                     continue;
                 }
-                
+
                 cla_SW = getSWFromResponseData(response_data);
 
                 if (cla_SW == 0xbaad) {
@@ -47,12 +47,12 @@ public class APDUScanner {
                 }
             } else {
                 CommandAPDU cla_apdu = new CommandAPDU((byte) cla, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00);
-                ResponseAPDU cla_res = ChannelHandler.getDefaultChannel().transmit(cla_apdu);
-                
+                ResponseAPDU cla_res = ChannelHandler.transmitOnDefaultChannel(cla_apdu);
+
                 if (!level2) {
                     writer.writeLine("I/O", cla_apdu.getBytes(), cla_res.getBytes());
                 }
-                
+
                 cla_SW = (short) cla_res.getSW();
             }
 
@@ -84,13 +84,13 @@ public class APDUScanner {
                     } else {
                         CommandAPDU ins_apdu = new CommandAPDU((byte) cla, (byte) ins, (byte) 0x00, (byte) 0x00, (byte) 0x00);
                         try {
-                            ins_res = ChannelHandler.getDefaultChannel().transmit(ins_apdu);
+                            ins_res = ChannelHandler.transmitOnDefaultChannel(ins_apdu);
                         } catch (IllegalArgumentException e) {
                             if ("Manage channel command not allowed, use openLogicalChannel()".equals(e.getMessage())) {
                                 continue;
                             }
                         }
-                        
+
                         writer.writeLine("I/O", ins_apdu.getBytes(), ins_res.getBytes());
                     }
 

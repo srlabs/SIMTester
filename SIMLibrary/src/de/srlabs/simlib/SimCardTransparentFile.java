@@ -27,7 +27,7 @@ public class SimCardTransparentFile extends SimCardElementaryFile {
          * OffsetL is the low (P2), or least significant byte (LSB) of the file
          */
         CommandAPDU readBinary = new CommandAPDU((byte) 0xA0, (byte) 0xB0, (byte) 0x00, (byte) 0x00, (byte) length); // Read Binary APDU
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(readBinary);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(readBinary);
 
         switch ((short) response.getSW()) {
             case (short) 0x9000:

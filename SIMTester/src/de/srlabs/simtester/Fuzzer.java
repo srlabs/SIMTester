@@ -142,7 +142,7 @@ public class Fuzzer extends Thread {
         EnvelopeSMSPPDownload env = new EnvelopeSMSPPDownload(addr, smstpdu);
 
         CommandAPDU envelope = env.getAPDU();
-        ResponseAPDU response = ChannelHandler.getDefaultChannel().transmit(envelope);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(envelope);
 
         return response;
     }
@@ -325,6 +325,6 @@ public class Fuzzer extends Thread {
     public static ResponseAPDU applicationDeSelect() throws Exception {
         // Lc = 00h, that's why there's a byte array, as we do not want to pass any data and CommandAPDU constructs calculate Lc automatically or don't trasmit it
         CommandAPDU sel = new CommandAPDU(new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x00}); // SelectApplication with no name (de-select, selects default application and return its AID in additional data
-        return ChannelHandler.getDefaultChannel().transmit(sel);
+        return ChannelHandler.transmitOnDefaultChannel(sel);
     }
 }

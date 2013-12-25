@@ -9,7 +9,6 @@ public class AutoTerminalProfile {
 
     private final static boolean LOCAL_DEBUG = false;
     private final static boolean DEBUG = Debug.DEBUG || LOCAL_DEBUG;
-    private static CardChannel _channel;
 
     public static boolean autoTerminalProfile() throws CardException {
         ResponseAPDU r;
@@ -26,9 +25,7 @@ public class AutoTerminalProfile {
             System.out.println();
         }
 
-        _channel = ChannelHandler.getDefaultChannel();
-
-        r = _channel.transmit(new CommandAPDU(baCommandAPDU));
+        r = ChannelHandler.transmitOnDefaultChannel(new CommandAPDU(baCommandAPDU));
 
         while ((r.getSW1() != 90 && r.getSW2() != 0x00) || r.getData().length > 0) {
             r = handleResponse(r);
@@ -116,7 +113,7 @@ public class AutoTerminalProfile {
             System.out.println();
         }
 
-        r = _channel.transmit(tr_apdu);
+        r = ChannelHandler.transmitOnDefaultChannel(tr_apdu);
 
         return r;
     }

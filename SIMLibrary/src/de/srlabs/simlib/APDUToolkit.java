@@ -22,7 +22,7 @@ public class APDUToolkit {
             System.out.println(LoggingUtils.formatDebugMessage("Fetching " + bytes + " bytes"));
         }
         CommandAPDU fetchAPDU = new CommandAPDU((byte) 0xA0, (byte) 0x12, (byte) 0x00, (byte) 0x00, bytes);
-        ResponseAPDU r = ChannelHandler.getDefaultChannel().transmit(fetchAPDU);
+        ResponseAPDU r = ChannelHandler.transmitOnDefaultChannel(fetchAPDU);
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("Fetched: " + HexToolkit.toString(r.getBytes())));
         }
@@ -34,7 +34,7 @@ public class APDUToolkit {
             System.out.println(LoggingUtils.formatDebugMessage("Getting response: " + bytes + " bytes"));
         }
         CommandAPDU getResponse = new CommandAPDU(new byte[]{(byte) 0xA0, (byte) 0xC0, (byte) 0x00, (byte) 0x00, (byte) bytes}); // Get Response APDU
-        ResponseAPDU r = ChannelHandler.getDefaultChannel().transmit(getResponse);
+        ResponseAPDU r = ChannelHandler.transmitOnDefaultChannel(getResponse);
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("Got response: " + HexToolkit.toString(r.getBytes())));
         }
@@ -44,11 +44,11 @@ public class APDUToolkit {
     public static ResponseAPDU runGSMAlgo(byte[] rand) throws CardException, FileNotFoundException {
         FileManagement.selectPath("3F007F20");
         CommandAPDU cmd = new CommandAPDU((byte) 0xA0, (byte) 0x88, (byte) 0x00, (byte) 0x00, rand);
-        return ChannelHandler.getDefaultChannel().transmit(cmd);
+        return ChannelHandler.transmitOnDefaultChannel(cmd);
     }
     
     public static ResponseAPDU sendStatus() throws CardException, FileNotFoundException {
         CommandAPDU cmd = new CommandAPDU((byte) 0xA0, (byte) 0xF2, (byte) 0x00, (byte) 0x00, (byte) 0x23);
-        return ChannelHandler.getDefaultChannel().transmit(cmd);
+        return ChannelHandler.transmitOnDefaultChannel(cmd);
     }
 }

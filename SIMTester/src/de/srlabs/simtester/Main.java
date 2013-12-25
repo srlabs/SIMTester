@@ -42,7 +42,7 @@ public class Main {
     public static String EF_MANUAREA = null;
     public static String EF_DIR = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v1.4.5, 2013-12-21";
+    private static final String version = "SIMTester v1.4.6, 2013-12-25";
     private static Fuzzer _fuzzer = null;
     private static CSVWriter _writer = null;
 

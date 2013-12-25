@@ -7,6 +7,8 @@ import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CardTerminal;
+import javax.smartcardio.CommandAPDU;
+import javax.smartcardio.ResponseAPDU;
 import javax.smartcardio.TerminalFactory;
 
 public class ChannelHandler {
@@ -122,6 +124,34 @@ public class ChannelHandler {
             return _instance._cardChannel;
         }
 
+    }
+
+    public static synchronized ResponseAPDU transmitOnDefaultChannel(CommandAPDU apdu) throws CardException {
+        ResponseAPDU response;
+
+        try {
+            response = getDefaultChannel().transmit(apdu);
+        } catch (CardException e) {
+            if (e.getMessage().contains("SCARD_E_NOT_TRANSACTED")) { // Mac OS X
+                System.err.println(LoggingUtils.formatDebugMessage("SCARD_E_NOT_TRANSACTED, trying to reset the card and retry.."));
+            } else if (e.getMessage().contains("Unknown error 0x8010002f")) { // Windows (Winscard.h says it's SCARD_E_COMM_DATA_LOST)
+                System.err.println(LoggingUtils.formatDebugMessage("Unknown error 0x8010002f, trying to reset the card and retry.."));
+            } else if (e.getMessage().contains("Could not obtain response")) {
+                System.err.println(LoggingUtils.formatDebugMessage("Could not obtain response detected, this sometimes happens on old cards, trying to reset the card and retry.."));
+            } else {
+                throw e; // just rethrow the exception as we don't recognize the error
+            }
+            try {
+                Thread.sleep(1000); // sleep for 1 sec so everything has time to settle
+            } catch (InterruptedException e2) {
+            }
+            getInstance().reset(); // reset the card
+            System.err.println(LoggingUtils.formatDebugMessage("You might loose context after card reset, only basic TERMINAL PROFILE is executed."));
+            AutoTerminalProfile.autoTerminalProfile(); // initialize the card
+            response = getDefaultChannel().transmit(apdu); // try once again with no catching (the exception will be thrown out of this function if this fails
+        }
+
+        return response;
     }
 
     public static void closeChannel() throws CardException {
