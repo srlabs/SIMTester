@@ -33,6 +33,7 @@ public class Main {
     private static List<Integer> customKeysets = null;
     private static List<String> customTARs = null;
     private static String _fuzzingLevel = "FULL";
+    public static boolean _gsmmap_upload = false;
     private static boolean _skipPin = false;
     public static boolean _logging = true;
     public static String ATR = null;
@@ -42,7 +43,7 @@ public class Main {
     public static String EF_MANUAREA = null;
     public static String EF_DIR = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v1.4.6, 2013-12-25";
+    private static final String version = "SIMTester v1.5, 2014-01-03";
     private static Fuzzer _fuzzer = null;
     private static CSVWriter _writer = null;
 
@@ -82,6 +83,13 @@ public class Main {
                 if (null != _writer) {
                     if (!_writer.unhideFile()) {
                         System.err.println(LoggingUtils.formatDebugMessage("Unable to unhide file " + _writer.getFileName() + ", make sure you rename it so it does NOT start with a dot to get processed!"));
+                    } else if (_gsmmap_upload) {
+                        if (GSMMapUploader.uploadFile(_writer.getFileName())) {
+                            System.out.println("Upload of " + _writer.getFileName() + " to gsmmap.org successful!");
+                        } else {
+                            System.err.println("There was a problem uploading the result to gsmmap.org");
+                            System.err.println("Please use the form at http://gsmmap.org/upload.html to submit the data manually.");
+                        }
                     }
                 }
             }
@@ -176,7 +184,11 @@ public class Main {
         System.out.println("EF_DIR: " + EF_DIR);
 
         ResponseAPDU deselectResponse = Fuzzer.applicationDeSelect();
-        AppDeSelect = HexToolkit.toString(deselectResponse.getBytes());
+        if (null != deselectResponse) {
+            AppDeSelect = HexToolkit.toString(deselectResponse.getBytes());
+        } else {
+            AppDeSelect = null;
+        }
         System.out.println("AppDeSelect: " + AppDeSelect);
 
         ChannelHandler.getInstance().reset();
@@ -196,8 +208,6 @@ public class Main {
         System.out.println();
         System.out.println("Starting fuzzing!");
         System.out.println("Fuzzing level: " + _fuzzingLevel);
-        System.out.println();
-        System.out.println("TAR values to be fuzzed: " + TARs);
         System.out.println();
 
         ArrayList<FuzzerData> fuzzers = new ArrayList<>();
@@ -226,6 +236,9 @@ public class Main {
                 TARs.add("RFM:B00010");
                 break;
         }
+
+        System.out.println("TAR values to be fuzzed: " + TARs);
+        System.out.println();
 
         if (null != customFuzzers) {
             fuzzers.clear();
@@ -352,6 +365,7 @@ public class Main {
         options.addOption("dp", "disable-pin", true, "Disabled the PIN1/CHV1");
         options.addOption("ri", "reader-index", true, "SIM card reader index (PCSC), OsmocomBB only supports 1 reader (index=0, default)");
         options.addOption("tf", "terminal-factory", true, "Terminal factory/type, either PCSC or OsmocomBB");
+        options.addOption("gsmmap", "gsmmap", false, "Automatically upload data to gsmmap.org");
         options.addOption(OptionBuilder.withLongOpt("tar").withDescription("TAR(s) to be tested, prefixed with a type, eg. 'RFM:B00010' or 'RAM:000000'").withValueSeparator(' ').hasArgs().withArgName("tar").create("t"));
         options.addOption(OptionBuilder.withLongOpt("keyset").withDescription("keyset(s) to be tested").withValueSeparator(' ').hasArgs().withArgName("keysets").create("k"));
         options.addOption(OptionBuilder.withLongOpt("fuzzer").withDescription("fuzzer(s) to be used").withValueSeparator(' ').hasArgs().withArgName("fuzzers").create("f"));
@@ -433,6 +447,10 @@ public class Main {
 
             if (cmdline.hasOption("poke")) {
                 _fuzzingLevel = "POKE";
+            }
+
+            if (cmdline.hasOption("gsmmap")) {
+                _gsmmap_upload = true;
             }
 
             if (cmdline.hasOption("f")) {

@@ -48,7 +48,12 @@ public class APDUToolkit {
     }
     
     public static ResponseAPDU sendStatus() throws CardException, FileNotFoundException {
-        CommandAPDU cmd = new CommandAPDU((byte) 0xA0, (byte) 0xF2, (byte) 0x00, (byte) 0x00, (byte) 0x23);
-        return ChannelHandler.transmitOnDefaultChannel(cmd);
+        CommandAPDU cmd = new CommandAPDU((byte) 0xA0, (byte) 0xF2, (byte) 0x00, (byte) 0x00, (byte) 0x00);
+        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(cmd);
+        if (response.getSW1() == 0x67) {
+            cmd = new CommandAPDU((byte) 0xA0, (byte) 0xF2, (byte) 0x00, (byte) 0x00, (byte) response.getSW2());
+            response = ChannelHandler.transmitOnDefaultChannel(cmd);
+        }
+        return response;
     }
 }

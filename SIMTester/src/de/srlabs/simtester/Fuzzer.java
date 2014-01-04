@@ -81,7 +81,7 @@ public class Fuzzer extends Thread {
                 return HexToolkit.compareTARs(ep1.getTAR(), ep2.getTAR());
             }
         });
-        
+
         if (unprotectedEntryPoints.size() < 1) {
             return; // no point in doing anything as there are no unprotected TARs that provide ARD
         }
@@ -92,7 +92,7 @@ public class Fuzzer extends Thread {
             System.out.print(HexToolkit.toString(ep.getTAR()) + " ");
         }
         System.out.println();
-        
+
         CSVWriter writer = new CSVWriter(Main.ICCID, "APDU", Main._logging);
         writer.writeBasicInfo(Main.ATR, Main.ICCID, Main.IMSI, Main.EF_MANUAREA, Main.EF_DIR, Main.AppDeSelect);
 
@@ -106,8 +106,18 @@ public class Fuzzer extends Thread {
                 e.printStackTrace(System.err);
             }
         }
-        
-        writer.unhideFile();
+
+        if (!_writer.unhideFile()) {
+            System.err.println(LoggingUtils.formatDebugMessage("Unable to unhide file " + _writer.getFileName() + ", make sure you rename it so it does NOT start with a dot to get processed!"));
+        } else if (Main._gsmmap_upload) {
+            if (GSMMapUploader.uploadFile(_writer.getFileName())) {
+                System.out.println("Upload of " + _writer.getFileName() + " to gsmmap.org successful!");
+            } else {
+                System.err.println("There was a problem uploading the result to gsmmap.org");
+                System.err.println("Please use the form at http://gsmmap.org/upload.html to submit the data manually.");
+            }
+        }
+
     }
 
     @Override
@@ -325,6 +335,6 @@ public class Fuzzer extends Thread {
     public static ResponseAPDU applicationDeSelect() throws Exception {
         // Lc = 00h, that's why there's a byte array, as we do not want to pass any data and CommandAPDU constructs calculate Lc automatically or don't trasmit it
         CommandAPDU sel = new CommandAPDU(new byte[]{(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x00}); // SelectApplication with no name (de-select, selects default application and return its AID in additional data
-        return ChannelHandler.transmitOnDefaultChannel(sel);
+        return ChannelHandler.transmitOnDefaultChannel(sel, false); // do not retry this, if it fails just skip it
     }
 }

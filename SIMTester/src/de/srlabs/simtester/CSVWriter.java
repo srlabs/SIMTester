@@ -1,6 +1,5 @@
 package de.srlabs.simtester;
 
-import de.srlabs.simlib.CommandPacket;
 import de.srlabs.simlib.HexToolkit;
 import de.srlabs.simlib.LoggingUtils;
 import java.io.File;
@@ -27,16 +26,20 @@ public class CSVWriter {
             }
         }
     }
-    
+
     public boolean unhideFile() {
         if (_csvfile.getName().startsWith(".")) {
             File newFile = new File(_csvfile.getName().substring(1));
-            return _csvfile.renameTo(newFile);
+            boolean result = _csvfile.renameTo(newFile);
+            if (result) {
+                _csvfile = newFile;
+            }
+            return result;
         } else {
             return false;
         }
     }
-    
+
     public String getFileName() {
         return _csvfile.getName();
     }

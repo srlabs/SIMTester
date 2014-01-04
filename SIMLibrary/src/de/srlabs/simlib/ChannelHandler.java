@@ -127,6 +127,10 @@ public class ChannelHandler {
     }
 
     public static synchronized ResponseAPDU transmitOnDefaultChannel(CommandAPDU apdu) throws CardException {
+        return transmitOnDefaultChannel(apdu, true);
+    }
+
+    public static synchronized ResponseAPDU transmitOnDefaultChannel(CommandAPDU apdu, boolean retry) throws CardException {
         ResponseAPDU response;
 
         try {
@@ -148,7 +152,11 @@ public class ChannelHandler {
             getInstance().reset(); // reset the card
             System.err.println(LoggingUtils.formatDebugMessage("You might loose context after card reset, only basic TERMINAL PROFILE is executed."));
             AutoTerminalProfile.autoTerminalProfile(); // initialize the card
-            response = getDefaultChannel().transmit(apdu); // try once again with no catching (the exception will be thrown out of this function if this fails
+            if (retry) {
+                response = getDefaultChannel().transmit(apdu); // try once again with no catching (the exception will be thrown out of this function if this fails
+            } else {
+                response = null;
+            }
         }
 
         return response;
