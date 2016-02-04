@@ -14,9 +14,17 @@ public class OTASMS {
         _smsdeliver = new SMSDeliverTPDU();
         _smsdeliver.setTPUDHI(true);
     }
-    
+
     public void setTPUD(byte[] bytes) {
         _smsdeliver.setTPUD(bytes);
+    }
+
+    public SMSDeliverTPDU getSMSDeliverTPDU() {
+        return _smsdeliver;
+    }
+
+    public void setSMSDeliverTPDU(SMSDeliverTPDU smsdelivertpdu) {
+        _smsdeliver = smsdelivertpdu;
     }
 
     public void setCommandPacket(CommandPacket cp) {
@@ -32,7 +40,13 @@ public class OTASMS {
 
         SMSTPDU smstpdu = new SMSTPDU(_smsdeliver.getBytes());
 
-        Address addr = new Address(HexToolkit.fromString("06050021436587"));
+        Address addr;
+        if (SIMLibrary.third_gen_apdu) {
+            addr = new Address(HexToolkit.fromString("86050021436587"));
+        } else {
+            addr = new Address(HexToolkit.fromString("06050021436587"));
+        }
+        
         EnvelopeSMSPPDownload env = new EnvelopeSMSPPDownload(addr, smstpdu);
 
         CommandAPDU envelope = env.getAPDU();

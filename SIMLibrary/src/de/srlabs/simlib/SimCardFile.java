@@ -10,6 +10,7 @@ public abstract class SimCardFile {
     protected String _fileId;
     protected byte _fileType;
     protected byte[] _selectResponseData;
+    protected byte _ef_type;
     public final static byte RFU = (byte) 0x00;
     public final static byte MF = (byte) 0x01;
     public final static byte DF = (byte) 0x02;
@@ -19,8 +20,11 @@ public abstract class SimCardFile {
     protected SimCardFile(SelectResponse selectResponse) {
         _fileId = selectResponse.getFileId();
         _selectResponseData = selectResponse.getResponseData();
-        _fileSize = (int) ((_selectResponseData[2] << 8) | (_selectResponseData[3] & 0xFF));
-        _fileType = (byte) _selectResponseData[6];
+        _fileSize = selectResponse.getFileSize();
+        _fileType = selectResponse.getFileType();
+        if (_fileType == SimCardFile.EF) {
+            _ef_type = selectResponse.getEFType();
+        }
     }
 
     public int getFileSize() {
@@ -45,7 +49,7 @@ public abstract class SimCardFile {
             case DF:
                 return "DF";
             case EF:
-                switch ((byte) _selectResponseData[13]) { // fileStructure byte
+                switch ((byte) _ef_type) { // fileStructure byte
                     case SimCardElementaryFile.EF_TRANSPARENT:
                         return "EF_TRANSPARENT";
                     case SimCardElementaryFile.EF_LINEAR_FIXED:
@@ -58,6 +62,11 @@ public abstract class SimCardFile {
     }
 
     public int getNumberOfChildDFs() {
+
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
+
         if (_fileType != MF && _fileType != DF) {
             throw new IllegalStateException("Unable to get number of child DFs for " + _fileId + " as it's not a DF, nor MF");
         } else {
@@ -66,6 +75,11 @@ public abstract class SimCardFile {
     }
 
     public int getNumberOfChildEFs() {
+
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
+
         if (_fileType != MF && _fileType != DF) {
             throw new IllegalStateException("Unable to get number of child DFs for " + _fileId + " as it's not a DF, nor MF");
         } else {
@@ -309,7 +323,7 @@ public abstract class SimCardFile {
         aMap.put("3f00/7f45", new String[]{"S@T", "SIMalliance Toolbox"});
         aMap.put("3f00/7f55", new String[]{"N@vigate", ""});
         aMap.put("3f00/7ff0", new String[]{"3G shadow dir", "used to link 3G files to 2G context, kind of wrong"});
-        
+
         _fileMap = Collections.unmodifiableMap(aMap);
     }
 }

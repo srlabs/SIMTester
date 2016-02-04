@@ -13,6 +13,10 @@ public class Auth {
 
     public static boolean isCHV1Enabled() throws CardException {
 
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
+
         SimCardFile file;
 
         try {
@@ -20,7 +24,7 @@ public class Auth {
         } catch (FileNotFoundException e) {
             file = null;
         }
-        
+
         if (null != file) {
             return !HexToolkit.isBitSet(file.getRawSelectResponseData()[13], 8);
         } else {
@@ -43,7 +47,13 @@ public class Auth {
             pinData[i] = (byte) c;
         }
 
-        CommandAPDU verifyCHV = new CommandAPDU((byte) 0xA0, (byte) 0x20, (byte) 0x00, (byte) offset, pinData);
+        CommandAPDU verifyCHV;
+        if (SIMLibrary.third_gen_apdu) {
+            verifyCHV = new CommandAPDU((byte) 0x00, (byte) 0x20, (byte) 0x00, (byte) offset, pinData);
+        } else {
+            verifyCHV = new CommandAPDU((byte) 0xA0, (byte) 0x20, (byte) 0x00, (byte) offset, pinData);
+        }
+
         ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(verifyCHV);
 
         switch ((short) response.getSW()) {
@@ -57,6 +67,7 @@ public class Auth {
             case (short) 0x9840:
                 throw new CardException("verifyCHV: PIN/CHV verification is unsuccessful, no further verification attempt allowed (PIN/CHV is BLOCKED)");
             case (short) 0x9808:
+            case (short) 0x6984:
                 System.out.println("verifyCHV: PIN/CHV is disabled, we don't need to authenticate on this card");
                 return true;
             default:
@@ -77,7 +88,13 @@ public class Auth {
             pinData[i] = (byte) c;
         }
 
-        CommandAPDU enableCHV1 = new CommandAPDU((byte) 0xA0, (byte) 0x28, (byte) 0x00, (byte) 0x01, pinData);
+        CommandAPDU enableCHV1;
+        if (SIMLibrary.third_gen_apdu) {
+            enableCHV1 = new CommandAPDU((byte) 0x00, (byte) 0x28, (byte) 0x00, (byte) 0x01, pinData);
+        } else {
+            enableCHV1 = new CommandAPDU((byte) 0xA0, (byte) 0x28, (byte) 0x00, (byte) 0x01, pinData);
+        }
+
         ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(enableCHV1);
 
         switch ((short) response.getSW()) {
@@ -112,7 +129,13 @@ public class Auth {
             pinData[i] = (byte) c;
         }
 
-        CommandAPDU disableCHV = new CommandAPDU((byte) 0xA0, (byte) 0x26, (byte) 0x00, (byte) offset, pinData);
+        CommandAPDU disableCHV;
+        if (SIMLibrary.third_gen_apdu) {
+            disableCHV = new CommandAPDU((byte) 0x00, (byte) 0x26, (byte) 0x00, (byte) offset, pinData);
+        } else {
+            disableCHV = new CommandAPDU((byte) 0xA0, (byte) 0x26, (byte) 0x00, (byte) offset, pinData);
+        }
+        
         ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(disableCHV);
 
         switch ((short) response.getSW()) {

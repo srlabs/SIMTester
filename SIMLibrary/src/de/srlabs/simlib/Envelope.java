@@ -17,7 +17,14 @@ public class Envelope {
         if (null == _data) {
             throw new IllegalStateException("Envelope: data variable has not been set!");
         }
-        CommandAPDU _envelope_apdu = new CommandAPDU((byte) 0xA0, (byte) 0xC2, (byte) 0x00, (byte) 0x00, _data);
+
+        CommandAPDU _envelope_apdu;
+        if (SIMLibrary.third_gen_apdu) {
+            _envelope_apdu = new CommandAPDU((byte) 0x80, (byte) 0xC2, (byte) 0x00, (byte) 0x00, _data);
+        } else {
+            _envelope_apdu = new CommandAPDU((byte) 0xA0, (byte) 0xC2, (byte) 0x00, (byte) 0x00, _data);
+        }
+
         return _envelope_apdu;
     }
 }

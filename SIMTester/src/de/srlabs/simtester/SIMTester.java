@@ -1,20 +1,25 @@
 package de.srlabs.simtester;
 
+import de.srlabs.simlib.APDUToolkit;
 import de.srlabs.simlib.Auth;
 import de.srlabs.simlib.AutoTerminalProfile;
 import de.srlabs.simlib.ChannelHandler;
 import de.srlabs.simlib.CommonFileReader;
 import de.srlabs.simlib.Debug;
+import de.srlabs.simlib.FileManagement;
 import de.srlabs.simlib.HexToolkit;
 import de.srlabs.simlib.LoggingUtils;
 import de.srlabs.simlib.SIMLibrary;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import javax.smartcardio.CardException;
+import javax.smartcardio.CardTerminal;
 import javax.smartcardio.ResponseAPDU;
+import javax.smartcardio.TerminalFactory;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
@@ -23,10 +28,10 @@ import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 
-public class Main {
+public class SIMTester {
 
     public static boolean DEBUG = false;
-    private static CommandLine cmdline;
+    public static CommandLine cmdline;
     private static String action = "";
     private static List<String> TARs = FuzzerFactory.defaultTARs;
     private static List<Integer> customFuzzers = null;
@@ -42,9 +47,11 @@ public class Main {
     public static String MSISDN = null;
     public static String EF_MANUAREA = null;
     public static String EF_DIR = null;
+    public static String AUTH = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v1.5, 2014-01-03";
+    private static final String version = "SIMTester v1.8.1, 2016-02-04";
     private static Fuzzer _fuzzer = null;
+    private static TARScanner _tarscanner = null;
     private static CSVWriter _writer = null;
 
     public static void main(String[] args) throws Exception {
@@ -53,7 +60,7 @@ public class Main {
         System.out.println("########################################");
         System.out.println("  " + version);
         System.out.println("  Lukas Kuzmiak (lukas@srlabs.de)       ");
-        System.out.println("  Security Research Labs, Berlin, 2013  ");
+        System.out.println("  Security Research Labs, Berlin, " + Calendar.getInstance().get(Calendar.YEAR));
         System.out.println("########################################");
         System.out.println();
 
@@ -72,8 +79,17 @@ public class Main {
                     }
                 }
 
+                if (null != _tarscanner) {
+                    _tarscanner.interrupt();
+                    try {
+                        _tarscanner.join(); // wait for all actions in thread to finish
+                        _tarscanner.scanExit();
+                    } catch (InterruptedException e) {
+                    }
+                }
+
                 try {
-                    ChannelHandler.closeChannel(); // FIXME: this get hung up if layer1 connection does not answer anymore and you have to kill -9 <java>
+                    ChannelHandler.disconnectCard(); // FIXME: this get hung up if layer1 connection does not answer anymore and you have to kill -9 <java>
                 } catch (CardException e) {
                 }
 
@@ -99,45 +115,111 @@ public class Main {
 
         switch (action) {
             case "TAR":
-                readBasicInfo();
-                _writer = new CSVWriter(ICCID, "TAR", _logging);
-                _writer.writeBasicInfo(ATR, ICCID, IMSI, EF_MANUAREA, EF_DIR, AppDeSelect);
-
-                int keyset = 1;
-                if (cmdline.hasOption("k") && !customKeysets.isEmpty()) {
-                    keyset = customKeysets.get(0);
-                }
-
-                if (cmdline.hasOption("str")) {
-                    TARScanner.scanRangesOfTARs(keyset, _writer);
-                } else {
-                    String startingTAR = "000000";
-
-                    if (cmdline.hasOption("t") && !customTARs.isEmpty()) {
-                        String[] split_TAR = customTARs.get(0).split(":");
-                        startingTAR = split_TAR[1];
-                    }
-
-                    TARScanner.scanAllTARs(startingTAR, keyset, _writer);
-                }
-
-                System.out.println("done scanning TARs, exiting..");
+                performTARScanning();
                 break;
             case "APDU":
-                readBasicInfo();
-                _writer = new CSVWriter(ICCID, "APDU", _logging);
-                _writer.writeBasicInfo(ATR, ICCID, IMSI, EF_MANUAREA, EF_DIR, AppDeSelect);
-                APDUScanner.run(null, _writer, false, true);
+                performAPDUScannning();
+                break;
+            case "OTA":
+                performOTAFuzzing();
                 break;
             default:
-                readBasicInfo();
-                _writer = new CSVWriter(ICCID, "FUZZ", _logging);
-                _writer.writeBasicInfo(ATR, ICCID, IMSI, EF_MANUAREA, EF_DIR, AppDeSelect);
-                fuzz();
+                performStandardFuzzing();
         }
     }
 
+    public static void performStandardFuzzing() throws Exception {
+        readBasicInfo();
+        _writer = new CSVWriter(ICCID, "FUZZ", _logging);
+        _writer.writeBasicInfo(ATR, ICCID, IMSI, MSISDN, EF_MANUAREA, EF_DIR, AUTH, AppDeSelect);
+        fuzz();
+        _writer.unhideFile();
+    }
+
+    public static void performOTAFuzzing() throws Exception {
+        readBasicInfo();
+        _writer = new CSVWriter(ICCID, "OTA", _logging);
+        _writer.writeBasicInfo(ATR, ICCID, IMSI, MSISDN, EF_MANUAREA, EF_DIR, AUTH, AppDeSelect);
+
+        int ota_keyset = 1;
+        if (null != customKeysets) {
+            ota_keyset = customKeysets.get(0);
+        }
+
+        FuzzerData fuzzer = FuzzerFactory.getFuzzer(1);
+        if (null != customFuzzers) {
+            fuzzer = FuzzerFactory.getFuzzer(customFuzzers.get(0));
+        }
+
+        String TAR = "RAM:000000";
+        if (null != customTARs) {
+            TAR = customTARs.get(0);
+        }
+
+        OTAFuzzer.fuzzOTA(ota_keyset, TAR, fuzzer, _writer, cmdline.hasOption("ofbf"));
+        _writer.unhideFile();
+        System.out.println("done fuzzing OTA passthrough, exiting..");
+    }
+
+    public static void performAPDUScannning() throws Exception {
+        readBasicInfo();
+        _writer = new CSVWriter(ICCID, "APDU", _logging);
+        _writer.writeBasicInfo(ATR, ICCID, IMSI, MSISDN, EF_MANUAREA, EF_DIR, AUTH, AppDeSelect);
+        APDUScanner.run(null, _writer, false, cmdline.hasOption("sal2"));
+        _writer.unhideFile();
+        System.out.println("done scanning APDUs, exiting..");
+    }
+
+    public static void performTARScanning() throws Exception {
+        readBasicInfo();
+        _writer = new CSVWriter(ICCID, "TAR", _logging);
+        _writer.writeBasicInfo(ATR, ICCID, IMSI, MSISDN, EF_MANUAREA, EF_DIR, AUTH, AppDeSelect);
+
+        int keyset = 1;
+        if (cmdline.hasOption("k") && !customKeysets.isEmpty()) {
+            keyset = customKeysets.get(0);
+        }
+
+        boolean try_being_smart = false;
+        if (cmdline.hasOption("stbs")) {
+            try_being_smart = true;
+        }
+
+        String regexp_to_match_response = null;
+        if (cmdline.hasOption("stre")) {
+            regexp_to_match_response = cmdline.getOptionValue("stre");
+        }
+
+        if (cmdline.hasOption("str")) {
+            _tarscanner = new TARScanner("scanRangesOfTARs", keyset, _writer, try_being_smart, regexp_to_match_response);
+
+            if (cmdline.hasOption("t") && !customTARs.isEmpty()) {
+                String[] split_TAR = customTARs.get(0).split(":");
+                String startingTAR = split_TAR[1];
+                _tarscanner.setStartingTAR(startingTAR);
+            }
+
+            _tarscanner.start();
+            _tarscanner.join();
+        } else {
+            _tarscanner = new TARScanner("scanAllTARs", keyset, _writer, try_being_smart, regexp_to_match_response);
+
+            if (cmdline.hasOption("t") && !customTARs.isEmpty()) {
+                String[] split_TAR = customTARs.get(0).split(":");
+                String startingTAR = split_TAR[1];
+                _tarscanner.setStartingTAR(startingTAR);
+            }
+
+            _tarscanner.start();
+            _tarscanner.join();
+        }
+
+        _writer.unhideFile();
+        System.out.println("done scanning TARs, exiting..");
+    }
+
     private static void readBasicInfo() throws Exception {
+        ResponseAPDU res;
         byte[] baATR = ChannelHandler.getDefaultChannel().getCard().getATR().getBytes();
         ATR = HexToolkit.toString(baATR);
         System.out.println();
@@ -154,7 +236,23 @@ public class Main {
         }
 
         ICCID = CommonFileReader.readICCID();
+        EF_MANUAREA = CommonFileReader.readMANUAREA();
+        EF_DIR = CommonFileReader.readDIR();
         System.out.println("ICCID: " + ICCID);
+
+        if (SIMLibrary.third_gen_apdu) {
+            String aid = CommonFileReader.getUSIMAID();
+            System.out.println("\033[96mRead USIM AID: " + aid + "\033[0m");
+            res = APDUToolkit.selectApplication(aid);
+            System.out.println("\033[96mTried to select USIM AID, result: " + HexToolkit.toString(res.getBytes()) + "\033[0m");
+
+            if ((short) res.getSW() != (short) 0x9000) {
+                SIMLibrary.third_gen_apdu = false;
+                System.out.println("\033[95m" + "WARNING! Unable to select USIM AID, falling back to 2G (reset in-progress)!" + "\033[0m");
+                ChannelHandler.getInstance().reset();
+            }
+        }
+
         byte[] rawIMSI = CommonFileReader.readRawIMSI();
         if (null != rawIMSI) {
             IMSI = CommonFileReader.swapIMSI(rawIMSI);
@@ -176,12 +274,34 @@ public class Main {
         }
 
         System.out.println("MSISDN: " + MSISDN);
-
-        EF_MANUAREA = CommonFileReader.readMANUAREA();
         System.out.println("EF_MANUAREA: " + EF_MANUAREA);
-
-        EF_DIR = CommonFileReader.readDIR();
         System.out.println("EF_DIR: " + EF_DIR);
+
+        if (SIMLibrary.third_gen_apdu) {
+            byte[] challenge = new byte[17];
+            Arrays.fill(challenge, (byte) 0x00);
+            challenge[0] = (byte) 16;
+            res = APDUToolkit.authenticate(true, challenge); // we HAVE TO use Authenticate APDU in GSM context as we can't provide a valid MAC
+
+            if ((byte) res.getSW1() == (byte) 0x61) {
+                res = APDUToolkit.getResponse(res.getSW2());
+                AUTH = "3G_" + HexToolkit.toString(res.getData());
+            } else {
+                AUTH = "3G_" + HexToolkit.toString(res.getBytes());
+            }
+        } else {
+            byte[] rand = new byte[16];
+            Arrays.fill(rand, (byte) 0x00);
+            res = APDUToolkit.runGSMAlgo2G(rand);
+            if ((byte) res.getSW1() == (byte) 0x9F) {
+                res = APDUToolkit.getResponse(res.getSW2());
+                AUTH = "2G_" + HexToolkit.toString(res.getData());
+            } else {
+                AUTH = "2G_" + HexToolkit.toString(res.getBytes());
+            }
+        }
+
+        System.out.println("AUTH: " + AUTH);
 
         ResponseAPDU deselectResponse = Fuzzer.applicationDeSelect();
         if (null != deselectResponse) {
@@ -192,9 +312,7 @@ public class Main {
         System.out.println("AppDeSelect: " + AppDeSelect);
 
         ChannelHandler.getInstance().reset();
-    }
 
-    private static void fuzz() throws Exception {
         if (AutoTerminalProfile.autoTerminalProfile()) {
             if (DEBUG) {
                 System.out.println(LoggingUtils.formatDebugMessage("Automatic Terminal profile initialization SUCCESSFUL!"));
@@ -204,6 +322,16 @@ public class Main {
                 System.out.println(LoggingUtils.formatDebugMessage("Automatic Terminal profile initialization FAILED!"));
             }
         }
+
+        if (SIMLibrary.third_gen_apdu) {
+            String aid = CommonFileReader.getUSIMAID();
+            System.out.println("\033[96mRead USIM AID: " + aid + "\033[0m");
+            res = APDUToolkit.selectApplication(aid);
+            System.out.println("\033[96mTried to select USIM AID, result: " + HexToolkit.toString(res.getBytes()) + "\033[0m");
+        }
+    }
+
+    private static void fuzz() throws Exception {
 
         System.out.println();
         System.out.println("Starting fuzzing!");
@@ -237,9 +365,6 @@ public class Main {
                 break;
         }
 
-        System.out.println("TAR values to be fuzzed: " + TARs);
-        System.out.println();
-
         if (null != customFuzzers) {
             fuzzers.clear();
             for (Integer oneFuzzer : customFuzzers) {
@@ -264,6 +389,9 @@ public class Main {
                 TARs.add(oneTAR);
             }
         }
+
+        System.out.println("TAR values to be fuzzed: " + TARs);
+        System.out.println();
 
         _fuzzer = new Fuzzer(_writer, TARs, keysets, fuzzers);
         _fuzzer.start();
@@ -335,6 +463,30 @@ public class Main {
         System.out.println();
     }
 
+    private static void listAllCards() throws Exception {
+
+        List<CardTerminal> terminals = TerminalFactory.getDefault().terminals().list();
+
+        System.out.println("Terminals connected: " + terminals.size());
+        for (CardTerminal terminal : terminals) {
+            System.out.println(terminal);
+        }
+        System.out.println();
+
+        int i = 0;
+        for (CardTerminal terminal : terminals) {
+            try {
+                terminal.connect("T=0");
+                ChannelHandler.getInstance(i, null);
+                System.out.println("IDX: " + i + ", ICCID = " + CommonFileReader.readICCID());
+            } catch (CardException e) {
+            } finally {
+                i++;
+            }
+
+        }
+    }
+
     private static String checkTerminalFactory(String terminalFactoryName) {
         switch (terminalFactoryName) {
             case "PCSC":
@@ -354,13 +506,29 @@ public class Main {
 
         options.addOption("h", "help", false, "this help");
         options.addOption("v", "version", false, "version of SIMTester");
+        options.addOption("2g", "2g-cmds", false, "Use 2G APDU format only");
         options.addOption("qf", "quick-fuzz", false, "Use quick fuzzing instead (only probes statistically best keysets (1-6) w/ best 4 most successful fuzzers)");
         options.addOption("poke", "poke-fuzz", false, "Fuzzing technique, only 'poke' the card, same as quick-fuzz, but only probes 3 TARs (000000, B00001, B00010)");
         options.addOption("d", "debug", false, "Enables debug messages");
+        options.addOption("la", "list-all", false, "Try to connect to all readers and show info about cards in them");
+        options.addOption("of", "ota-fuzz", false, "Fuzz OTA passthrough (PID, DCS, UDHI, IEI/CPH)");
+        options.addOption("ofbf", "ota-fuzz-bruteforce", false, "Use 0-255 values for both PID and DCS, without this options only most common values are used.");
+        options.addOption("nl", "no-logging", false, "Skip the CSV logging");
         options.addOption("sp", "skip-pin", false, "Skips the PIN1/CHV1");
+        options.addOption("sdr", "sms-deliver-report", false, "Use SMS-DELIVER-REPORT instead of SMS-SUBMIT for PoR");
         options.addOption("st", "scan-tars", false, "Scans all possbile TAR values (takes time!), starting TAR can be chosen with -t option (first -t (TAR) option will be used)");
         options.addOption("str", "scan-tars-range", false, "Scans TAR values but only pre-specified ranges that usually contain most of the TARs");
-        options.addOption("sa", "scan-apdu", false, "Scans all possible CLA and INS values to discover valid APDU commands");
+        options.addOption("stbs", "scan-tars-be-smart", false, "Try being smart while scanning TARs - scan a few random TARs to determine false response");
+        options.addOption("stre", "scan-tars-regexp", true, "Specify a regexp to match on responses to determine a false response");
+        options.addOption("sa", "scan-apdu", false, "Scans all possible CLA (and INS w/ -sal2) values to discover valid APDU commands");
+        options.addOption("sal2", "scan-apdu-level2", false, "Will also scan for INS for each CLA for both terminal and OTA APDU scanning (use with option -sa)");
+        options.addOption("sfb", "scan-files-break", false, "Use with -sf, stop scanning directory when the count returned by Select APDU matched count of found files");
+        options.addOption("sffs", "scan-files-follow-standard", false, "Use with -sf, only search for IDs that are standardized, eg. 3rd level files only between 4F00 and 4FFF etc.");
+        options.addOption("sf", "scan-files", false, "Scans files on the SIM, starts at MF (0x3F00)");
+        options.addOption("kic", "kic", true, "Overwrites KIC byte in all fuzzer messages to a custom value");
+        options.addOption("kid", "kid", true, "Overwrites KID byte in all fuzzer messages to a custom value");
+        options.addOption("spi1", "spi1", true, "Overwrites SPI1 byte in all fuzzer messages to a custom value");
+        options.addOption("spi2", "spi2", true, "Overwrites SPI2 byte in all fuzzer messages to a custom value");
         options.addOption("vp", "verify-pin", true, "Verifies the PIN1/CHV1");
         options.addOption("dp", "disable-pin", true, "Disabled the PIN1/CHV1");
         options.addOption("ri", "reader-index", true, "SIM card reader index (PCSC), OsmocomBB only supports 1 reader (index=0, default)");
@@ -369,6 +537,7 @@ public class Main {
         options.addOption(OptionBuilder.withLongOpt("tar").withDescription("TAR(s) to be tested, prefixed with a type, eg. 'RFM:B00010' or 'RAM:000000'").withValueSeparator(' ').hasArgs().withArgName("tar").create("t"));
         options.addOption(OptionBuilder.withLongOpt("keyset").withDescription("keyset(s) to be tested").withValueSeparator(' ').hasArgs().withArgName("keysets").create("k"));
         options.addOption(OptionBuilder.withLongOpt("fuzzer").withDescription("fuzzer(s) to be used").withValueSeparator(' ').hasArgs().withArgName("fuzzers").create("f"));
+        options.addOption(OptionBuilder.withLongOpt("sfrv").withDescription("File scanning: Add a file ID(s) to reserved values for file scanning (will be skipped).").withValueSeparator(' ').hasArgs().withArgName("sfrv").create("sfrv"));
 
         try {
             // parse the command line arguments
@@ -389,14 +558,65 @@ public class Main {
                 Debug.DEBUG = true;
             }
 
-            if (cmdline.hasOption("tf")) {
-                if (cmdline.hasOption("ri")) {
-                    ChannelHandler.getInstance(Integer.parseInt(cmdline.getOptionValue("ri")), checkTerminalFactory(cmdline.getOptionValue("tf")));
-                } else {
-                    ChannelHandler.getInstance(0, checkTerminalFactory(cmdline.getOptionValue("tf")));
-                }
+            if (cmdline.hasOption("nl")) {
+                _logging = false;
+            }
+
+            if (cmdline.hasOption("2g")) {
+                SIMLibrary.third_gen_apdu = false;
+            }
+
+            if (cmdline.hasOption("la")) {
+                listAllCards();
+                System.exit(0);
+            }
+
+            if (cmdline.hasOption("tf") && cmdline.hasOption("ri")) {
+                ChannelHandler.getInstance(Integer.parseInt(cmdline.getOptionValue("ri")), checkTerminalFactory(cmdline.getOptionValue("tf")));
+            } else if (cmdline.hasOption("tf")) {
+                ChannelHandler.getInstance(0, checkTerminalFactory(cmdline.getOptionValue("tf")));
+            } else if (cmdline.hasOption("ri")) {
+                ChannelHandler.getInstance(Integer.parseInt(cmdline.getOptionValue("ri")), checkTerminalFactory("PCSC")); // PCSC is default
             } else {
-                ChannelHandler.getInstance(0, checkTerminalFactory("PCSC")); // PCSC is default
+                ChannelHandler.getInstance(0, checkTerminalFactory("PCSC")); // PCSC is default, reader index = 0 is default
+            }
+
+            ChannelHandler.getInstance().reset();
+            if (SIMLibrary.third_gen_apdu) { // auto-detect if card supports 3G APDUs
+                try {
+                    ResponseAPDU response = FileManagement.selectFileById(new byte[]{(byte) 0x3F, (byte) 0x00});
+                    if ((short) response.getSW() != (short) 0x9000 && (byte) response.getSW1() != (byte) 0x91 && (byte) response.getSW1() != (byte) 0x61) { // 3G failed
+                        System.err.println("\033[96m" + "3G APDU FAILED, " + String.format("%04X", response.getSW()) + " returned, this card does NOT support 3G, falling back to 2G and auto-retrying..\033[0m");
+                        SIMLibrary.third_gen_apdu = false;
+
+                        try {
+                            if (null != CommonFileReader.getUSIMAID()) {
+                                System.out.println("\033[95m" + "WARNING! Card doesn't seem to accept 3G APDUs but EF_DIR AID is present, report this!" + "\033[0m");
+                            }
+                        } catch (CardException e) {
+                            if (DEBUG) { // only display something for DEBUG - otherwise let's ignore this (probably EF_DIR full of 0xFF)
+                                System.err.println(LoggingUtils.formatDebugMessage("EF_DIR has malformed content! Does not contain 0x4F tag"));
+                            }
+                        }
+                    } else {
+                        try {
+                            if (null == CommonFileReader.getUSIMAID()) {
+                                System.out.println("\033[95m" + "WARNING! Card's EF_DIR seems to be empty!" + "\033[0m");
+                            } else {
+                                System.out.println("\033[96m" + "Card seems to support 3G APDUs..\033[0m");
+                            }
+                        } catch (CardException e) {
+                            System.err.println("\033[96m" + "Unable to read USIM AID - file empty of malformed - falling back to 2G APDUs!" + "\033[0m");
+                            SIMLibrary.third_gen_apdu = false;
+                        }
+                    }
+                    if (DEBUG) {
+                        System.out.println(LoggingUtils.formatDebugMessage("3G auto-detect returned: " + HexToolkit.toString(response.getBytes())));
+                    }
+                } catch (CardException e) {
+                    System.err.println("3G support auto-detect failed, leaving 3G APDU mode on, expect messy behavior!");
+                    e.printStackTrace(System.err);
+                }
             }
 
             if (cmdline.hasOption("dp")) {
@@ -425,11 +645,41 @@ public class Main {
                 if (customTARs.isEmpty()) {
                     customTARs = null;
                 }
-
             }
 
             if (cmdline.hasOption("k")) {
                 customKeysets = getIntegerArray(Arrays.asList(cmdline.getOptionValues("k")));
+            }
+
+            if (cmdline.hasOption("sfb") && !cmdline.hasOption("sf")) {
+                System.err.println(LoggingUtils.formatDebugMessage("Option -sfb (scan-files-break) has to be used along with -sf, exiting!"));
+                System.exit(1);
+            }
+
+            if (cmdline.hasOption("sffs") && !cmdline.hasOption("sf")) {
+                System.err.println(LoggingUtils.formatDebugMessage("Option -sffs (scan-files-follow-standard) has to be used along with -sf, exiting!"));
+                System.exit(1);
+            }
+
+            if (cmdline.hasOption("sfrv")) {
+                FileScanner.userDefinedReservedIDs = Arrays.asList(cmdline.getOptionValues("sfrv"));
+            }
+
+            if (cmdline.hasOption("sf")) {
+                boolean breakAfterCount = false;
+                boolean lazyScan = false;
+
+                if (cmdline.hasOption("sfb")) {
+                    breakAfterCount = true;
+                }
+
+                if (cmdline.hasOption("sffs")) {
+                    lazyScan = true;
+                }
+
+                FileScanner.scanSim(breakAfterCount, lazyScan);
+                System.out.println("done scanning files, exiting..");
+                System.exit(0);
             }
 
             if (cmdline.hasOption("st") || cmdline.hasOption("str")) {
@@ -438,7 +688,10 @@ public class Main {
 
             if (cmdline.hasOption("sa")) {
                 action = "APDU";
-                System.out.println("done scanning APDUs, exiting..");
+            }
+
+            if (cmdline.hasOption("of")) {
+                action = "OTA";
             }
 
             if (cmdline.hasOption("qf")) {
@@ -455,6 +708,27 @@ public class Main {
 
             if (cmdline.hasOption("f")) {
                 customFuzzers = getIntegerArray(Arrays.asList(cmdline.getOptionValues("f")));
+            }
+
+            if (cmdline.hasOption("sdr")) {
+                Fuzzer.use_sms_submit = false; // this applies for both fuzzing and OTA fuzzing
+                TARScanner.use_sms_submit = false;
+            }
+
+            if (cmdline.hasOption("kic")) {
+                Fuzzer.KIC = HexToolkit.fromStringToSingleByte(cmdline.getOptionValue("kic").substring(0, 1));
+            }
+
+            if (cmdline.hasOption("kid")) {
+                Fuzzer.KID = HexToolkit.fromStringToSingleByte(cmdline.getOptionValue("kid").substring(0, 1));
+            }
+
+            if (cmdline.hasOption("spi1")) {
+                Fuzzer.SPI1 = HexToolkit.fromStringToSingleByte(cmdline.getOptionValue("spi1").substring(0, 2));
+            }
+
+            if (cmdline.hasOption("spi2")) {
+                Fuzzer.SPI2 = HexToolkit.fromStringToSingleByte(cmdline.getOptionValue("spi2").substring(0, 2));
             }
 
         } catch (ParseException exp) {
@@ -481,5 +755,9 @@ public class Main {
             }
         }
         return result;
+    }
+
+    public static String getVersion() {
+        return version;
     }
 }

@@ -36,7 +36,6 @@ public class FuzzerFactory {
                     CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, false));
 
             // ciphered PoRs - same old fuzzers as we used (above) with ciphering enabled for PoRs
-
             put(9, new FuzzerData("fuzzer9", CommandPacket.CNTR_NO_CNTR_AVAILABLE,
                     CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true));
 
@@ -133,9 +132,8 @@ public class FuzzerFactory {
             add("RFM:494D45");
             add("RFM:4C5041");
             add("RFM:4D4552");
-            add("RFM:4E4147");
-            add("RFM:4D4552");
             add("RFM:4D4C4D");
+            add("RFM:4E4147");
             add("RFM:4E5550");
             add("RFM:4E5553");
             add("RFM:4E5650");
@@ -176,6 +174,12 @@ public class FuzzerFactory {
             add("RFM:B00042");
             add("RFM:B00050");
             add("RFM:B00120");
+            add("RFM:B00140");
+            add("RFM:B00141");
+            add("RFM:B00142");
+            add("RFM:B00143");
+            add("RFM:B00144");
+            add("RFM:B00145");
             add("RFM:B11000");
             add("RFM:B20100");
             add("RFM:B20102");
@@ -186,8 +190,11 @@ public class FuzzerFactory {
             add("RFM:BFFF03");
             add("RFM:BFFF04");
             add("RFM:BFFF05");
+            add("RFM:BFFF15");
+            add("RFM:BFFF22");
             add("RFM:BFFFBA");
             add("RFM:BFFFEE");
+            add("RFM:BFFFFF");
             add("RFM:C00000");
             add("RFM:C0013D");
             add("RFM:D00003");

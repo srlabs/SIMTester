@@ -2,6 +2,7 @@ package de.srlabs.simtester;
 
 import de.srlabs.simlib.HexToolkit;
 import de.srlabs.simlib.LoggingUtils;
+import de.srlabs.simlib.SIMLibrary;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
@@ -19,6 +20,14 @@ public class CSVWriter {
             _csvfile = new File("." + type + "_" + ICCID + "_" + System.currentTimeMillis() + ".csv");
             try {
                 _writer = new FileWriter(_csvfile);
+
+                _writer.append("# ");
+                _writer.append(SIMTester.getVersion());
+                _writer.append('\n');
+
+                _writer.append("# ");
+                _writer.append(SIMLibrary.version);
+                _writer.append('\n');
             } catch (IOException e) {
                 System.err.println(LoggingUtils.formatDebugMessage("Unable to create file " + _csvfile.getName() + ", exiting.."));
                 e.printStackTrace(System.err);
@@ -27,7 +36,7 @@ public class CSVWriter {
         }
     }
 
-    public boolean unhideFile() {
+    public synchronized boolean unhideFile() {
         if (_csvfile.getName().startsWith(".")) {
             File newFile = new File(_csvfile.getName().substring(1));
             boolean result = _csvfile.renameTo(newFile);
@@ -36,7 +45,7 @@ public class CSVWriter {
             }
             return result;
         } else {
-            return false;
+            return true; // assuming it's already not hidden
         }
     }
 
@@ -58,14 +67,16 @@ public class CSVWriter {
         }
     }
 
-    public void writeBasicInfo(String ATR, String ICCID, String IMSI, String EF_MANUAREA, String EF_DIR, String AppDeSelect) {
+    public void writeBasicInfo(String ATR, String ICCID, String IMSI, String MSISDN, String EF_MANUAREA, String EF_DIR, String AUTH, String AppDeSelect) {
         if (_logging) {
             try {
                 _writer.append("ATR:" + ATR + '\n');
                 _writer.append("ICCID:" + ICCID + '\n');
                 _writer.append("IMSI:" + IMSI + '\n');
+                _writer.append("MSISDN:" + MSISDN + '\n');
                 _writer.append("EF_MANUAREA:" + EF_MANUAREA + '\n');
                 _writer.append("EF_DIR:" + EF_DIR + '\n');
+                _writer.append("AUTH:" + AUTH + '\n');
                 _writer.append("AppDeSelect:" + AppDeSelect + '\n');
 
                 _writer.flush();
@@ -89,6 +100,21 @@ public class CSVWriter {
                 _writer.append(HexToolkit.toString(command_data));
                 _writer.append(',');
                 _writer.append(HexToolkit.toString(response_data));
+                _writer.append('\n');
+
+                _writer.flush();
+            } catch (IOException e) {
+                System.err.println(LoggingUtils.formatDebugMessage("Unable to write line into the CSV file, something's wrooooong, panic, panic, exit."));
+                e.printStackTrace(System.err);
+                System.exit(1);
+            }
+        }
+    }
+
+    public void writeRawLine(String lineContent) {
+        if (_logging) {
+            try {
+                _writer.append(lineContent);
                 _writer.append('\n');
 
                 _writer.flush();

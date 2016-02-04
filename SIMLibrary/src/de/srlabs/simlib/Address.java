@@ -35,6 +35,7 @@ public class Address {
     public Address(byte[] rawData) {
         if (rawData.length > 4) {
             if (rawData[0] == TYPE_GSM || rawData[0] == TYPE_3G) {
+                _type = rawData[0];
                 if (rawData[1] == (rawData.length - 2)) {
                     _length = rawData[1];
                     _ton_npi = rawData[2];
@@ -49,11 +50,6 @@ public class Address {
         } else {
             throw new IllegalArgumentException("rawData are shorter than TAG+LENGTH+TON_NPI+DIALINGSTRING");
         }
-    }
-
-    public Address(byte[] rawData, byte type) throws Exception {
-        this(rawData);
-        _type = type;
     }
 
     public void getTON() throws Exception {

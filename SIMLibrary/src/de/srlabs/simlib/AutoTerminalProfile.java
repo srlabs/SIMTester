@@ -1,6 +1,6 @@
 package de.srlabs.simlib;
 
-import javax.smartcardio.CardChannel;
+import java.text.ParseException;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
@@ -19,7 +19,13 @@ public class AutoTerminalProfile {
             System.out.println();
         }
 
-        byte[] baCommandAPDU = HexToolkit.fromString("A010000011FF9FFFFFFF0F1FFF7F0300002008200000"); //terminal profile APDU with some pre-specified capabilities
+        byte[] baCommandAPDU;
+        if (SIMLibrary.third_gen_apdu) {
+            baCommandAPDU = HexToolkit.fromString("8010000011FF9FFFFFFF0F1FFF7F0300002008200000"); //terminal profile APDU with some pre-specified capabilities
+        } else {
+            baCommandAPDU = HexToolkit.fromString("A010000011FF9FFFFFFF0F1FFF7F0300002008200000"); //terminal profile APDU with some pre-specified capabilities
+        }
+
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("Sending TERMINAL PROFILE APDU: " + HexToolkit.toString(baCommandAPDU)));
             System.out.println();
@@ -27,7 +33,7 @@ public class AutoTerminalProfile {
 
         r = ChannelHandler.transmitOnDefaultChannel(new CommandAPDU(baCommandAPDU));
 
-        while ((r.getSW1() != 90 && r.getSW2() != 0x00) || r.getData().length > 0) {
+        while ((r.getSW1() != (byte) 0x90 && r.getSW2() != (byte) 0x00) || r.getData().length > 0) {
             r = handleResponse(r);
         }
 
@@ -50,37 +56,27 @@ public class AutoTerminalProfile {
 
     public static ResponseAPDU handleProactiveCommand(ResponseAPDU response) throws CardException {
         ResponseAPDU r;
+        ProactiveCommand pc;
 
-        byte[] data = response.getData();
+        try {
+            pc = new ProactiveCommand(response);
+        } catch (ParseException e) {
+            //throw new CardException(e);
+            System.err.println("Unable to parse ProactiveCommand, sending fake (zero length) TERMINAL RESPONSE, this may get ugly!");
 
-        if (!((byte) 0xD0 == data[0])) { // check if data look like a proactive command based on tag
-            throw new CardException("handleProactiveCommand: data in ResponseAPDU don't look like a valid Proactive command");
+            CommandAPDU tr_apdu;
+            if (SIMLibrary.third_gen_apdu) {
+                tr_apdu = new CommandAPDU((byte) 0x80, (byte) 0x14, (byte) 0x00, (byte) 0x00, HexToolkit.fromString("81 03 010000 82 02 82 81 83 01 00".replaceAll(" ", "")));
+            } else {
+                tr_apdu = new CommandAPDU((byte) 0xA0, (byte) 0x14, (byte) 0x00, (byte) 0x00, HexToolkit.fromString("81 03 010000 82 02 82 81 83 01 00".replaceAll(" ", "")));
+            }
+
+            r = ChannelHandler.transmitOnDefaultChannel(tr_apdu);
+            return r;
         }
 
-        // handle length
-        int offset;
-
-        if ((byte) 0x81 == data[1]) {
-            offset = 1;
-        } else {
-            offset = 0;
-        }
-
-
-        if ((byte) (data.length - 2 - offset) != data[1 + offset]) {
-            throw new CardException("handleProactiveCommand: data in ResponseAPDU don't correspont with length (2nd byte); data dump -> " + HexToolkit.toString(data));
-        }
-
-        byte[] pc_command_details = new byte[5]; // Proactive command; command details
-        System.arraycopy(data, 2 + offset, pc_command_details, 0, 5);
-
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("Raw ProactiveCommand: " + HexToolkit.toString(data)));
-        }
-
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("ProactiveCommand: " + identifyProactiveCommand(pc_command_details) + " proactive command, trying to format Terminal Reponse"));
-        }
+        byte[] pc_command_details = pc.getCommandDetails();
+        byte[] data = pc.getBytes();
 
         byte[] tr_device_identities = new byte[]{(byte) 0x82, (byte) 0x02, (byte) 0x82, (byte) 0x81};
         byte[] tr_result_successful = new byte[]{(byte) 0x83, (byte) 0x01, (byte) 0x00};
@@ -89,9 +85,9 @@ public class AutoTerminalProfile {
 
         if ((byte) 0x81 == pc_command_details[0] && pc_command_details.length == 5 && pc_command_details[3] == 0x03) {
             // POLL INTERVAL detected
-            byte[] poll_interval = TLVToolkit.getTLV(data, 0x84);
+            byte[] poll_interval = TLVToolkit.getTLV(data, (byte) 0x84);
             if (null == poll_interval) {
-                poll_interval = TLVToolkit.getTLV(data, 0x04);
+                poll_interval = TLVToolkit.getTLV(data, (byte) 0x04);
                 if (null == poll_interval) {
                     throw new CardException("handleProactiveCommand: failure during POLL INTERVAL proactive command handling, DEBUG THIS!");
                 }
@@ -102,11 +98,29 @@ public class AutoTerminalProfile {
             }
         }
 
+        // debug loc info
+        if ((byte) 0x81 == pc_command_details[0] && pc_command_details.length == 5 && pc_command_details[3] == 0x26) {
+            if (pc_command_details[4] == 0x00) {
+                byte[] loc_info = new byte[]{(byte) 0x13, (byte) 0x4, (byte) 0x11, (byte) 0x22, (byte) 0x33, (byte) 0x44};
+                tr_data = new byte[pc_command_details.length + tr_device_identities.length + tr_result_successful.length + loc_info.length];
+                System.arraycopy(loc_info, 0, tr_data, pc_command_details.length + tr_device_identities.length + tr_result_successful.length, loc_info.length);
+            } else if (pc_command_details[4] == 0x01) {
+                byte[] imei = new byte[]{(byte) 0x14, (byte) 0x08, (byte) 0x11, (byte) 0x22, (byte) 0x33, (byte) 0x44, (byte) 0x55, (byte) 0x66, (byte) 0x77, (byte) 0x88};
+                tr_data = new byte[pc_command_details.length + tr_device_identities.length + tr_result_successful.length + imei.length];
+                System.arraycopy(imei, 0, tr_data, pc_command_details.length + tr_device_identities.length + tr_result_successful.length, imei.length);
+            }
+        }
+
         System.arraycopy(pc_command_details, 0, tr_data, 0, pc_command_details.length);
         System.arraycopy(tr_device_identities, 0, tr_data, pc_command_details.length, tr_device_identities.length);
         System.arraycopy(tr_result_successful, 0, tr_data, pc_command_details.length + tr_device_identities.length, tr_result_successful.length);
 
-        CommandAPDU tr_apdu = new CommandAPDU((byte) 0xA0, (byte) 0x14, (byte) 0x00, (byte) 0x00, tr_data);
+        CommandAPDU tr_apdu;
+        if (SIMLibrary.third_gen_apdu) {
+            tr_apdu = new CommandAPDU((byte) 0x80, (byte) 0x14, (byte) 0x00, (byte) 0x00, tr_data);
+        } else {
+            tr_apdu = new CommandAPDU((byte) 0xA0, (byte) 0x14, (byte) 0x00, (byte) 0x00, tr_data);
+        }
 
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("handleProactiveCommand: terminal response complete APDU: " + HexToolkit.toString(tr_apdu.getBytes())));
@@ -116,36 +130,5 @@ public class AutoTerminalProfile {
         r = ChannelHandler.transmitOnDefaultChannel(tr_apdu);
 
         return r;
-    }
-
-    public static String identifyProactiveCommand(byte[] CommandDetails) {
-        String name = "NOT IDENTIFIED";
-
-        if ((byte) 0x81 == CommandDetails[0] && CommandDetails.length == 5) {
-            switch (CommandDetails[3]) {
-                case (byte) 0x03:
-                    name = "POLL INTERVAL";
-                    break;
-                case (byte) 0x05:
-                    name = "SET UP EVENT LIST";
-                    break;
-                case (byte) 0x13:
-                    name = "SEND SHORT MESSAGE";
-                    break;
-                case (byte) 0x21:
-                    name = "DISPLAY TEXT";
-                    break;
-                case (byte) 0x25:
-                    name = "SET UP MENU";
-                    break;
-                case (byte) 0x26:
-                    name = "PROVIDE LOCAL INFORMATION";
-                    break;
-                default:
-                    name = "NOT IDENTIFIED (" + HexToolkit.toString(CommandDetails[3]) + ")";
-            }
-        }
-
-        return name;
     }
 }

@@ -1,5 +1,6 @@
 package de.srlabs.simlib;
 
+import java.text.ParseException;
 import java.util.Arrays;
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
@@ -65,8 +66,9 @@ public class CommandPacket {
     // PoR mode
     public final static byte POR_MODE_SMS_DELIVER_REPORT = (byte) 0x0;
     public final static byte POR_MODE_SMS_SUBMIT = (byte) 0x1;
-    // Axalto "proprietary" signing mechanism
+    // idiotic Axalto
     private boolean _axaltoSignature = false;
+    private boolean _reallyPerformEncryption = false;
 
     public CommandPacket() {
     }
@@ -85,6 +87,10 @@ public class CommandPacket {
 
     public byte getKID() {
         return KID;
+    }
+
+    public void setCPH(byte[] cph) {
+        CPH = cph;
     }
 
     /* SPI1 settings */
@@ -107,14 +113,16 @@ public class CommandPacket {
     }
 
     public boolean isCipheringEnabled() {
-        if ((byte) ((byte) SPI1 & (byte) 0x4) == (byte) 0x4) {
-            return true;
-        } else {
-            return false;
-        }
+        return (byte) ((byte) SPI1 & (byte) 0x4) == (byte) 0x4;
     }
 
     public void setCiphering(boolean enabled, byte[] kic_key) {
+        System.out.println("WARNING: Encryption will NOT be really performed (just SPI and KIC will be set), use reallyPerformEncryption = true");
+        setCiphering(enabled, kic_key, false);
+    }
+
+    public void setCiphering(boolean enabled, byte[] kic_key, boolean reallyPerformEncryption) {
+        _reallyPerformEncryption = reallyPerformEncryption;
         if (enabled) {
             SPI1 = (byte) ((byte) ((byte) SPI1 & (byte) 0xFB) | (byte) 0x4);
             if (kic_key.length % 8 != 0) {
@@ -162,11 +170,7 @@ public class CommandPacket {
     }
 
     public boolean isPoRCipheringEnabled() {
-        if ((byte) ((byte) SPI2 & (byte) 0x10) == (byte) 0x10) {
-            return true;
-        } else {
-            return false;
-        }
+        return (byte) ((byte) SPI2 & (byte) 0x10) == (byte) 0x10;
     }
 
     public void setPoRCiphering(boolean enabled) {
@@ -197,8 +201,24 @@ public class CommandPacket {
         return KIC_keyset;
     }
 
+    public int getKICKeyset() {
+        return (byte) ((byte) ((byte) KIC >> 4) & (byte) 0x0F);
+    }
+
+    public int getKIDKeyset() {
+        return (byte) ((byte) ((byte) KID >> 4) & (byte) 0x0F);
+    }
+
     public void setKeyset(int keyset) {
         KIC = (byte) ((byte) ((byte) KIC & (byte) 0x0F) | (byte) ((byte) keyset << 4));
+        KID = (byte) ((byte) ((byte) KID & (byte) 0x0F) | (byte) ((byte) keyset << 4));
+    }
+
+    public void setKICKeyset(int keyset) {
+        KIC = (byte) ((byte) ((byte) KIC & (byte) 0x0F) | (byte) ((byte) keyset << 4));
+    }
+
+    public void setKIDKeyset(int keyset) {
         KID = (byte) ((byte) ((byte) KID & (byte) 0x0F) | (byte) ((byte) keyset << 4));
     }
 
@@ -341,6 +361,9 @@ public class CommandPacket {
     }
 
     public long getCounter() {
+        if (this.isCipheringEnabled()) {
+            return -1;
+        }
         long counter = 0;
         for (int i = 0; i < 5; i++) {
             counter <<= 8;
@@ -373,6 +396,10 @@ public class CommandPacket {
         return PCNTR;
     }
 
+    public byte[] getCryptographicChecksum() {
+        return CC;
+    }
+
     public byte[] getUserData() {
         return UD;
     }
@@ -389,7 +416,7 @@ public class CommandPacket {
             return _bytes;
         }
 
-        if (getKeyset() > -1) {
+        if (getKICKeyset() > -1 && getKICKeyset() < 16 && getKIDKeyset() > -1 && getKIDKeyset() < 16) {
             if (null != TAR) {
                 if (null != CNTR) {
                     if (null != UD) {
@@ -462,7 +489,9 @@ public class CommandPacket {
 
         if (this.isCipheringEnabled()) {
             byte[] ciphered = _cipher();
-            System.arraycopy(ciphered, 0, command_packet, CPH.length + CPL.length + 5 + TAR.length, ciphered.length); // same offset as CNTR
+            if (_reallyPerformEncryption) {
+                System.arraycopy(ciphered, 0, command_packet, CPH.length + CPL.length + 5 + TAR.length, ciphered.length); // same offset as CNTR
+            }
         }
 
         return command_packet;
@@ -657,24 +686,51 @@ public class CommandPacket {
     }
 
     // 027000 0080 15 1601 25 25 0002037f3caa1c8c860e61cdc35c3bed8353d5e8c701b4dc1d7d21597c5194607782d51ec9d1ec2c5c7639fe700beaa86686058b12bcae25d2101004a5662a4155dbc497f0316f9b1cd76a712549724a69429b34b1fa3f986e4c8b8c257099f2cbdd15b57a2d390000000000000000000000000000000000000000
-    public void parse(byte[] data) {
+    public void parse(byte[] data) throws ParseException {
 
         if (!Arrays.equals(Arrays.copyOfRange(data, 0, 3), CPH)) {
-            throw new IllegalArgumentException("CommandPacket: Command packet header not found in the data provided");
+            throw new ParseException("Command packet header not found in the data provided", 0);
         }
 
         _bytes = data;
 
-        CPL = Arrays.copyOfRange(_bytes, 3, 5);
-        CHL = _bytes[5];
+        int _cp_length = data.length - CPH.length - CPL.length; // should be minus 5 (3 bytes RPH and 2 bytes RPL)
+        int _CPL_data_length = (byte) ((data[3] & 0xff) << 8) | (byte) (data[4] & 0xff);
 
-        SPI1 = _bytes[6];
-        SPI2 = _bytes[7];
+        if (_cp_length != _CPL_data_length) {
+            throw new ParseException("Command packet length (CPL) doesn't correspond with the actual data length; real length = " + _cp_length + "; CPL = " + _CPL_data_length, 0);
+        }
 
-        KIC = _bytes[8];
-        KID = _bytes[9];
+        // FIXME: check if CPL if 027000, if not then maybe we have concatenated header here - take concatenation in mind!
+        CPL[0] = (byte) data[3];
+        CPL[1] = (byte) data[4];
 
-        getKeyset();
+        CHL = (byte) data[5];
+
+        // TODO: based on lengths find out what's inside CP (CC, DS, is it encrypted?, etc..)
+        SPI1 = data[6];
+        SPI2 = data[7];
+
+        KIC = data[8];
+        KID = data[9];
+
+        TAR = Arrays.copyOfRange(data, 10, 13);
+        _encryptedCNTR = Arrays.copyOfRange(data, 13, 18); // is this correct?
+
+        if (!this.isCipheringEnabled()) {
+            CNTR = Arrays.copyOfRange(data, 13, 18);
+            PCNTR = data[18];
+            if (this.isCryptographicChecksumEnabled()) {
+                CC = Arrays.copyOfRange(data, 19, 19 + 8 /* length of a CC */);
+                UD = Arrays.copyOfRange(data, 19 + 8 /* length of a CC */, data.length);
+            } else {
+                UD = Arrays.copyOfRange(data, 19, data.length);
+            }
+        }
+
+        // TODO:
+        // if CC is contained fill in CC (if not encrypted)
+        // if encrypted make a variable for ciphertext and fill it (prepare getXXX, setXXX methods)
     }
 
     public void setFakeKIC(byte kic) {

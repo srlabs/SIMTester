@@ -198,12 +198,21 @@ public class SMSDeliverTPDU {
      * 111111		(U)SIM Data download
      * Therefore TP-PID for (U)SIM Data Download is defined as (b7-b0) 0111 1111 = 7F (hex)
      */
-    private final static byte TPPID = (byte) 0x7F;
+    private byte TPPID = (byte) 0x7F;
     /* 9.2.3.10	TP Data Coding Scheme (TP DCS)
      * The TP Data Coding Scheme is defined in 3GPP TS 23.038 [9].
      * as we want 8-bit data encoding and our envelope is going to be (U)SIM specific message bits are defined as:
      * 1111 0110 as stated in Section 4 in TS 23.038 (SMS Data Coding Scheme)
      */
+
+    public byte getPID() {
+        return TPPID;
+    }
+
+    public void setPID(byte pid) {
+        TPPID = pid;
+    }
+
     private byte TPDCS = (byte) 0xF6;
     /* 9.2.3.11	TP Service Centre Time Stamp (TP SCTS)
      * The TP Service Centre Time Stamp field is given in semi octet representation, and represents the local time in the following way:
@@ -213,6 +222,15 @@ public class SMSDeliverTPDU {
      * 
      * as we don't really care about this parameter we'll fill it with 0x00, it's not important for our data messages (at least not for testing)
      */
+
+    public byte getDCS() {
+        return TPDCS;
+    }
+
+    public void setDCS(byte dcs) {
+        TPDCS = dcs;
+    }
+
     private byte[] TPSCTS = new byte[7];
     /* 9.2.3.16	TP User Data Length (TP UDL)
      * If the TP User Data is coded using 8 bit data, the TP User Data Length field gives an integer representation of the number of octets within the TP User Data field to follow.
@@ -222,6 +240,11 @@ public class SMSDeliverTPDU {
     public int getTPUDL() {
         return TPUDL;
     }
+    
+    public void setFakeTPUDL(byte length) {
+        TPUDL = (byte) length;
+    }
+    
     private byte[] TPUD = new byte[0];
 
     public void setTPUD(byte[] userData) {

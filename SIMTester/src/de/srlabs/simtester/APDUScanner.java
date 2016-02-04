@@ -8,6 +8,8 @@ import de.srlabs.simlib.HexToolkit;
 import de.srlabs.simlib.LoggingUtils;
 import de.srlabs.simlib.OTASMS;
 import de.srlabs.simlib.ResponsePacket;
+import de.srlabs.simlib.SIMLibrary;
+import java.text.ParseException;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
@@ -17,7 +19,11 @@ public class APDUScanner {
     public static void run(EntryPoint ep, CSVWriter writer, boolean viaOTA, boolean level2) throws CardException {
 
         System.out.println();
-        System.out.println("Performing a " + (level2 ? "LEVEL 2" : "LEVEL 1") + " APDU scan" + (!level2 ? " for TAR " + HexToolkit.toString(ep.getTAR()) + "." : "."));
+        if (ep != null)
+            System.out.println("Performing a " + (level2 ? "LEVEL 2" : "LEVEL 1") + " APDU scan" + (!level2 ? " for TAR " + HexToolkit.toString(ep.getTAR()) + "." : "."));
+        else
+            System.out.println("Performing a " + (level2 ? "LEVEL 2" : "LEVEL 1") + " APDU scan.");
+        
         System.out.println();
 
         CommandPacket cp = (viaOTA ? ep.getCommandPacket() : new CommandPacket());
@@ -25,12 +31,13 @@ public class APDUScanner {
 
         for (short cla = 0; cla <= (short) 0xff && !Thread.currentThread().isInterrupted(); cla++) {
             short cla_SW;
+            byte[] response_data = null;
             if (viaOTA) {
                 byte[] cla_apdu = new byte[]{(byte) cla, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
                 cp.setUserData(cla_apdu);
                 otasms.setCommandPacket(cp);
                 ResponseAPDU cla_res = otasms.send();
-                byte[] response_data = getResponseData(cla_res);
+                response_data = getResponseData(cla_res);
 
                 if (!level2) {
                     writer.writeLine(HexToolkit.toString(ep.getTAR()), cp.getBytes(), response_data);
@@ -60,18 +67,19 @@ public class APDUScanner {
                 continue;
             }
 
-            System.out.println("Valid CLA found: " + HexToolkit.toString((byte) cla) + ", response was: 0x" + String.format("%04X", cla_SW));
+            System.out.println("Valid CLA found: " + HexToolkit.toString((byte) cla) + ", response was: 0x" + String.format("%04X", cla_SW) + ", response_data: " + HexToolkit.toString(response_data));
 
             if (level2) {
                 for (short ins = 0; ins <= (short) 0xff && !Thread.currentThread().isInterrupted(); ins++) {
                     short ins_SW;
                     ResponseAPDU ins_res = null;
+                    response_data = null;
                     if (viaOTA) {
                         byte[] ins_apdu = new byte[]{(byte) cla, (byte) ins, (byte) 0x00, (byte) 0x00, (byte) 0x00};
                         cp.setUserData(ins_apdu);
                         otasms.setCommandPacket(cp);
                         ins_res = otasms.send();
-                        byte[] response_data = getResponseData(ins_res);
+                        response_data = getResponseData(ins_res);
                         writer.writeLine(HexToolkit.toString(ep.getTAR()), cp.getBytes(), response_data);
                         if (null == response_data) {
                             continue;
@@ -89,8 +97,10 @@ public class APDUScanner {
                             if ("Manage channel command not allowed, use openLogicalChannel()".equals(e.getMessage())) {
                                 continue;
                             }
+                        } catch (CardException e) {
+                            writer.writeLine("I/O", ins_apdu.getBytes(), new byte[]{});
+                            continue;
                         }
-
                         writer.writeLine("I/O", ins_apdu.getBytes(), ins_res.getBytes());
                     }
 
@@ -105,18 +115,22 @@ public class APDUScanner {
                         continue;
                     }
 
-                    System.out.println("Valid APDU found: CLA(" + HexToolkit.toString((byte) cla) + "), INS(" + HexToolkit.toString((byte) ins) + "), response: 0x" + String.format("%04X", ins_SW));
+                    System.out.println("Valid APDU found: CLA(" + HexToolkit.toString((byte) cla) + "), INS(" + HexToolkit.toString((byte) ins) + "), response: 0x" + String.format("%04X", ins_SW) + ", response_data: " + HexToolkit.toString(response_data));
                 }
             }
         }
         System.out.println();
-        System.out.println("APDU scan has finished" + (!level2 ? " on TAR " + HexToolkit.toString(ep.getTAR()) + "." : "."));
+        if (ep != null)
+            System.out.println("APDU scan has finished" + (!level2 ? " on TAR " + HexToolkit.toString(ep.getTAR()) + "." : "."));
+        else
+            System.out.println("APDU scan has finished.");
     }
 
     private static byte[] getResponseData(ResponseAPDU response) throws CardException {
         byte[] response_data = null;
 
-        if ((byte) response.getSW1() == (byte) 0x9E || (byte) response.getSW1() == (byte) 0x9F) {
+        if ((byte) response.getSW1() == (byte) 0x9E || (byte) response.getSW1() == (byte) 0x9F
+                || (SIMLibrary.third_gen_apdu && ((byte) response.getSW1() == (byte) 0x62 || (byte) response.getSW1() == (byte) 0x61))) {
             response_data = APDUToolkit.getResponse(response.getSW2()).getData();
         } else if ((byte) response.getSW1() == (byte) 0x91) { // fetch
             ResponseAPDU fetch_response = APDUToolkit.performFetch(response.getSW2());
@@ -138,9 +152,18 @@ public class APDUScanner {
     }
 
     private static short getSWFromResponseData(byte[] response_data) {
+
         if (null != response_data) {
             ResponsePacket rp = new ResponsePacket();
-            rp.parse(response_data);
+
+            try {
+                rp.parse(response_data);
+            } catch (ParseException e) {
+                System.err.println("Parse exception while parsing response packet, skipping it! details:");
+                e.printStackTrace(System.err);
+                return (short) 0xbaad;
+            }
+
             byte status_code = rp.getStatusCode();
             if (status_code == 0) {
                 if (rp.areAdditionalDataPresent()) {

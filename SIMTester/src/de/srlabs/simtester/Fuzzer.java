@@ -6,11 +6,15 @@ import de.srlabs.simlib.AutoTerminalProfile;
 import de.srlabs.simlib.ChannelHandler;
 import de.srlabs.simlib.CommandPacket;
 import de.srlabs.simlib.EnvelopeSMSPPDownload;
+import de.srlabs.simlib.Helpers;
 import de.srlabs.simlib.HexToolkit;
 import de.srlabs.simlib.LoggingUtils;
+import de.srlabs.simlib.ProactiveCommand;
 import de.srlabs.simlib.ResponsePacket;
+import de.srlabs.simlib.SIMLibrary;
 import de.srlabs.simlib.SMSDeliverTPDU;
 import de.srlabs.simlib.SMSTPDU;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -25,13 +29,14 @@ import javax.smartcardio.ResponseAPDU;
 public class Fuzzer extends Thread {
 
     private final static boolean LOCAL_DEBUG = false;
-    private final static boolean DEBUG = Main.DEBUG || LOCAL_DEBUG;
+    private final static boolean DEBUG = SIMTester.DEBUG || LOCAL_DEBUG;
     private static boolean scannedTARwithPoR09 = false;
     private static boolean skipTAROnPoR09 = false;
     public static Byte KIC = null;
     public static Byte KID = null;
     public static Byte SPI1 = null;
     public static Byte SPI2 = null;
+    public static boolean use_sms_submit = true;
     private CSVWriter _writer;
     private List<String> _TARs = null;
     private List _keysets = null;
@@ -93,12 +98,12 @@ public class Fuzzer extends Thread {
         }
         System.out.println();
 
-        CSVWriter writer = new CSVWriter(Main.ICCID, "APDU", Main._logging);
-        writer.writeBasicInfo(Main.ATR, Main.ICCID, Main.IMSI, Main.EF_MANUAREA, Main.EF_DIR, Main.AppDeSelect);
+        CSVWriter writer = new CSVWriter(SIMTester.ICCID, "APDU", SIMTester._logging);
+        writer.writeBasicInfo(SIMTester.ATR, SIMTester.ICCID, SIMTester.IMSI, SIMTester.MSISDN, SIMTester.EF_MANUAREA, SIMTester.EF_DIR, SIMTester.AUTH, SIMTester.AppDeSelect);
 
         for (EntryPoint ep : unprotectedEntryPoints) {
             try {
-                APDUScanner.run(ep, writer, true, false);
+                APDUScanner.run(ep, writer, true, SIMTester.cmdline.hasOption("sal2"));
                 if (Thread.currentThread().isInterrupted()) {
                     break;
                 }
@@ -107,11 +112,11 @@ public class Fuzzer extends Thread {
             }
         }
 
-        if (!_writer.unhideFile()) {
-            System.err.println(LoggingUtils.formatDebugMessage("Unable to unhide file " + _writer.getFileName() + ", make sure you rename it so it does NOT start with a dot to get processed!"));
-        } else if (Main._gsmmap_upload) {
-            if (GSMMapUploader.uploadFile(_writer.getFileName())) {
-                System.out.println("Upload of " + _writer.getFileName() + " to gsmmap.org successful!");
+        if (!writer.unhideFile()) {
+            System.err.println(LoggingUtils.formatDebugMessage("Unable to unhide file " + writer.getFileName() + ", make sure you rename it so it does NOT start with a dot to get processed!"));
+        } else if (SIMTester._gsmmap_upload) {
+            if (GSMMapUploader.uploadFile(writer.getFileName())) {
+                System.out.println("Upload of " + writer.getFileName() + " to gsmmap.org successful!");
             } else {
                 System.err.println("There was a problem uploading the result to gsmmap.org");
                 System.err.println("Please use the form at http://gsmmap.org/upload.html to submit the data manually.");
@@ -144,20 +149,47 @@ public class Fuzzer extends Thread {
             System.out.println(LoggingUtils.formatDebugMessage("smsdeliver data: " + HexToolkit.toString(smsdeliver.getBytes())));
         }
 
+        if (null != KIC) {
+            cp.setFakeKIC(KIC);
+        }
+
+        if (null != KID) {
+            cp.setFakeKID(KID);
+        }
+
+        if (null != SPI1) {
+            cp.setFakeSPI1(SPI1);
+        }
+
+        if (null != SPI2) {
+            cp.setFakeSPI2(SPI2);
+        }
+
         smsdeliver.setTPUD(cp.getBytes()); // User data
 
         SMSTPDU smstpdu = new SMSTPDU(smsdeliver.getBytes());
 
-        Address addr = new Address(HexToolkit.fromString("06050021436587"));
+        Address addr;
+        if (SIMLibrary.third_gen_apdu) {
+            addr = new Address(HexToolkit.fromString("86050021436587"));
+        } else {
+            addr = new Address(HexToolkit.fromString("06050021436587"));
+        }
+
         EnvelopeSMSPPDownload env = new EnvelopeSMSPPDownload(addr, smstpdu);
 
         CommandAPDU envelope = env.getAPDU();
+
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("Envelope content: " + HexToolkit.toString(envelope.getBytes())));
+        }
+
         ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(envelope);
 
         return response;
     }
 
-    private CommandPacket generateCommandPacket(int keyset, byte counterManagement, int KICAlgo, int KIDAlgo, String TAR, boolean cipherPoR) {
+    public static CommandPacket generateCommandPacket(int keyset, byte counterManagement, int KICAlgo, int KIDAlgo, String TAR, boolean cipherPoR) {
 
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("called generateCommandPacket(keyset = " + keyset + ", counterManagement = " + counterManagement + ", KICAlgo = " + KICAlgo + ", KIDAlgo = " + KIDAlgo + ", TAR = " + TAR + ", cipherPoR = " + cipherPoR));
@@ -179,11 +211,11 @@ public class Fuzzer extends Thread {
 
         cp.setKICAlgo(KICAlgo); // algorithm used for KIC parameter (second number of KID param, 1 = DES, 5 = 3DES) !! use constant from CommandPacket class !!
         if (KICAlgo == CommandPacket.KIC_ALGO_DES_CBC) {
-            cp.setCiphering(true, HexToolkit.fromString("0000000000000000"));
+            cp.setCiphering(true, HexToolkit.fromString("0000000000000000"), false);
         } else if (KICAlgo == CommandPacket.KIC_ALGO_3DES_CBC_2KEYS) {
-            cp.setCiphering(true, HexToolkit.fromString("00000000000000000000000000000000"));
+            cp.setCiphering(true, HexToolkit.fromString("00000000000000000000000000000000"), false);
         } else if (KICAlgo == CommandPacket.KIC_ALGO_3DES_CBC_3KEYS) {
-            cp.setCiphering(true, HexToolkit.fromString("000000000000000000000000000000000000000000000000"));
+            cp.setCiphering(true, HexToolkit.fromString("000000000000000000000000000000000000000000000000"), false);
         }
 
         cp.setCounterManegement(counterManagement); // counter management verification bit !! use constant from CommandPacket class !!
@@ -196,18 +228,26 @@ public class Fuzzer extends Thread {
         } else {
             cp.setPoRSecurity(CommandPacket.POR_SECURITY_CC); // sign the PoR packet
         }
-        cp.setPoRMode(CommandPacket.POR_MODE_SMS_DELIVER_REPORT);
-        //cp.setPoRMode(CommandPacket.POR_MODE_SMS_SUBMIT);
+
+        if (use_sms_submit) {
+            cp.setPoRMode(CommandPacket.POR_MODE_SMS_SUBMIT);
+        } else {
+            cp.setPoRMode(CommandPacket.POR_MODE_SMS_DELIVER_REPORT);
+        }
 
         cp.setTAR(HexToolkit.fromString(split_TAR[1]));
 
-        if ("RFM".equals(split_TAR[0])) {
-            cp.setUserData(HexToolkit.fromString("A0A40000023F00")); // RFM, A0A40000023F00 = 2G selectFile MF (MasterFile)
-        } else if ("RAM".equals(split_TAR[0])) {
-            cp.setUserData(HexToolkit.fromString("80E60200160BA000000000123456789010000006EF04C602000000")); // RAM, Install for Load, AID = A000000000123456789010
-        } else {
-            System.err.println(LoggingUtils.formatDebugMessage("Unsupported TAR type: " + split_TAR[0] + ", exiting.."));
-            System.exit(1);
+        switch (split_TAR[0]) {
+            case "RFM":
+                cp.setUserData(HexToolkit.fromString("A0A40000023F00")); // RFM, A0A40000023F00 = 2G selectFile MF (MasterFile)
+                break;
+            case "RAM":
+                cp.setUserData(HexToolkit.fromString("80E60200160BA000000000123456789010000006EF04C602000000")); // RAM, Install for Load, AID = A000000000123456789010
+                break;
+            default:
+                System.err.println(LoggingUtils.formatDebugMessage("Unsupported TAR type: " + split_TAR[0] + ", exiting.."));
+                System.exit(1);
+                break;
         }
 
         return cp;
@@ -227,26 +267,63 @@ public class Fuzzer extends Thread {
                 Integer keyset = (Integer) keyset_iter.next();
 
                 CommandPacket cp = generateCommandPacket(keyset, fuzzer._counter, fuzzer._kic, fuzzer._kid, TAR, fuzzer._cipherPoR);
-                ResponseAPDU response = fuzzCard(cp);
+
+                ResponseAPDU response;
+                try {
+                    response = fuzzCard(cp);
+                } catch (CardException e) {
+                    System.out.println(LoggingUtils.formatDebugMessage("Card probably crashed, skipping keyset.."));
+                    continue;
+                }
 
                 if ((byte) response.getSW1() == (byte) 0x90 && (byte) response.getSW2() == (byte) 0x00) {
-                    System.out.println("fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR()) + ", keyset: " + keyset + " - no PoR packet even if requested (SW: 0x9000)");
+                    System.out.println("\033[90m" + "fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR()) + ", keyset: " + keyset + " - no PoR packet even if requested (SW: 0x9000)" + "\033[0m");
                     _writer.writeLine(fuzzerName, cp.getBytes(), response.getBytes());
                     continue;
                 }
 
                 byte[] response_data = null;
 
-                if ((byte) response.getSW1() == (byte) 0x9E || (byte) response.getSW1() == (byte) 0x9F) {
-                    response_data = APDUToolkit.getResponse(response.getSW2()).getData();
+                if ((byte) response.getSW1() == (byte) 0x9E || (byte) response.getSW1() == (byte) 0x9F
+                        || (SIMLibrary.third_gen_apdu && ((byte) response.getSW1() == (byte) 0x62 || (byte) response.getSW1() == (byte) 0x61))) {
+                    ResponseAPDU getresponse_response = APDUToolkit.getResponse(response.getSW2());
+                    response_data = getresponse_response.getData();
+                    _writer.writeLine(fuzzerName, cp.getBytes(), getresponse_response.getBytes()); // log full response
                 } else if ((byte) response.getSW1() == (byte) 0x91) { // fetch
                     ResponseAPDU fetch_response = APDUToolkit.performFetch(response.getSW2());
                     byte[] fetched_data = fetch_response.getData();
-                    System.out.println("fuzzer: " + fuzzerName + ", TAR: " + TAR + ", keyset: " + keyset + " - card responded with FETCH, fetched_data = " + HexToolkit.toString(fetched_data));
+                    System.out.println("\033[90m" + "fuzzer: " + fuzzerName + ", TAR: " + TAR + ", keyset: " + keyset + " - card responded with FETCH, fetched_data = " + HexToolkit.toString(fetched_data) + ", response word: " + String.format("%04X", fetch_response.getSW()) + "\033[0m");
+                    _writer.writeLine(fuzzerName, cp.getBytes(), fetch_response.getBytes()); // log full fetch response
 
                     if (fetched_data[0] == (byte) 0xD0) { // handling of proactive data..
-                        System.out.println("first byte of fetch data is 0xD0, trying to handle the proactive command we fetched.. ");
-                        AutoTerminalProfile.handleProactiveCommand(fetch_response);
+                        ProactiveCommand pc;
+                        try {
+                            pc = new ProactiveCommand(fetched_data);
+
+                            String summary = pc.getSummary();
+                            if (!"".equals(summary)) {
+                                System.out.println("\033[90m" + "Proactive command (" + "\033[95m" + pc.getType() + "\033[90m" + ") identified, details: " + "\033[95m" + summary + "\033[90m" + "; trying to handle it.." + "\033[0m");
+                            } else {
+                                System.out.println("\033[90m" + "Proactive command (" + "\033[95m" + pc.getType() + "\033[90m" + ") identified, trying to handle it.." + "\033[0m");
+                            }
+                        } catch (ParseException e) {
+                            System.err.println(LoggingUtils.formatDebugMessage("Unable to parse ProactiveCommand, skipping its handling, this may get ugly !!!"));
+                        }
+
+                        ResponseAPDU handled_response = AutoTerminalProfile.handleProactiveCommand(fetch_response);
+
+                        int limit = 0;
+                        while (handled_response.getSW() != 0x9000 && limit < 10) {
+                            System.out.println("\033[95m" + "WARNING! Response (SW) to terminal response apdu is not 0x9000: " + HexToolkit.toString(handled_response.getBytes()) + "\033[0m");
+                            handled_response = Helpers.handleSIMResponse(handled_response, true);
+                            limit++;
+                        }
+
+                        if (limit == 10) {
+                            System.err.println("FATAL ERROR: endless loop while handling response! SCAN IS INCOMPLETE! FIX THIS!");
+                            System.exit(1);
+                        }
+
                     }
 
                     response_data = ResponsePacket.Helpers.findResponsePacket(fetched_data);
@@ -263,21 +340,48 @@ public class Fuzzer extends Thread {
                     continue;
                 }
 
-                System.out.println("fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR()) + ", keyset: " + keyset + " - unexpected card response, check it out!");
-                System.out.println(HexToolkit.toString(response.getBytes()));
+                System.out.println("\033[90m" + "fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR()) + ", keyset: " + keyset + " - unexpected card response (" + HexToolkit.toString(response.getBytes()) + "), check it out!" + "\033[0m");
                 _writer.writeLine(fuzzerName, cp.getBytes(), response.getBytes());
             }
         }
         // if we've already scanned a TAR that returned PoR 09 let's skip all others
         // as they are not going to show any different signatures
+        // Unless the card leaks even on PoR 0x09 - then we want to go over everything.
         if (scannedTARwithPoR09) {
-            skipTAROnPoR09 = true;
+            boolean PoR09leaks = false;
+
+            for (FuzzerResult encrypted : encryptedResponses) {
+                // there is encrypted response with PoR 0x09 (card leaks even on PoR 09)
+                if (encrypted._responsePacket.getStatusCode() == (byte) 0x09 && encrypted._responsePacket.isEncrypted() && encrypted._responsePacket.areAdditionalDataPresent()) {
+                    PoR09leaks = true;
+                }
+            }
+
+            for (FuzzerResult signed : signedResponses) {
+                // there is signed response with PoR 0x09 (card leaks even on PoR 09)
+                if (signed._responsePacket.getStatusCode() == (byte) 0x09 && !signed._responsePacket.isEncrypted() && signed._responsePacket.isCryptographicChecksumPresent()) {
+                    PoR09leaks = true;
+                }
+            }
+
+            if (!PoR09leaks) {
+                skipTAROnPoR09 = true;
+            } else {
+                System.out.println("Process will not skip PoR 0x09 as card leaks even on PoR 0x09, let's gather all that.");
+            }
         }
     }
 
     private boolean handleResponseData(CommandPacket cp, byte[] response_data, FuzzerData fuzzer) {
         ResponsePacket rp = new ResponsePacket();
-        rp.parse(response_data, cp.getPoRCounter());
+
+        try {
+            rp.parse(response_data, cp.getPoRCounter());
+        } catch (ParseException e) {
+            System.err.println("Parse exception while parsing response packet, skipping it! details:");
+            e.printStackTrace(System.err);
+            return true;
+        }
 
         boolean warning = false;
         boolean critical = false;
@@ -303,17 +407,16 @@ public class Fuzzer extends Thread {
         }
 
         String fuzzerName = fuzzer._name;
-        _writer.writeLine(fuzzerName, cp.getBytes(), response_data);
 
         if (status_code == (byte) 0x09 && !rp.isEncrypted()) { // if the RP is encrypted it's pointless to test for PoR
             scannedTARwithPoR09 = true;
             if (skipTAROnPoR09) {
-                System.out.println("fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR()) + " -> unknown to card (PoR 0x09), already scanned, skipping..");
+                System.out.println("\033[90m" + "fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR()) + " -> unknown to card (PoR 0x09), already scanned, skipping.." + "\033[0m");
                 return false;
             }
         }
 
-        System.out.print((critical ? "\033[91m" : (warning ? "\033[93m" : "")));
+        System.out.print((critical ? "\033[91m" : (warning ? "\033[93m" : "\033[90m")));
 
         if (rp.isEncrypted()) { // PoR is requested in encrypted form
             System.out.print("fuzzer: " + fuzzerName + ", TAR: " + HexToolkit.toString(cp.getTAR())
@@ -327,7 +430,7 @@ public class Fuzzer extends Thread {
             }
         }
 
-        System.out.println(((critical | warning) ? (critical ? " -> CRITICAL WEAKNESS FOUND\033[0m" : " -> WEAKNESS FOUND\033[0m") : ""));
+        System.out.println(((critical | warning) ? (critical ? " -> CRITICAL WEAKNESS FOUND\033[0m" : " -> WEAKNESS FOUND\033[0m") : "\033[0m"));
 
         return true;
     }

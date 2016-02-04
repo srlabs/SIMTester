@@ -3,6 +3,15 @@ package de.srlabs.simlib;
 import java.security.NoSuchAlgorithmException;
 import java.security.Security;
 import java.util.List;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
@@ -16,12 +25,38 @@ public class ChannelHandler {
     private static ChannelHandler _instance = null;
     private static int _readerIndex = 0;
     private static String _terminalFactoryName;
-    private CardChannel _cardChannel;
+    private static CardChannel _cardChannel;
     private CardTerminal _cardTerminal;
     private static Card _card;
-    private static TerminalFactory _terminalFactory = null;
+    private final static TerminalFactory _terminalFactory = null;
     private final static boolean LOCAL_DEBUG = false;
     private final static boolean DEBUG = Debug.DEBUG || LOCAL_DEBUG;
+
+    private static boolean trueCardReset = true;
+
+    public static void initReset() {
+        Pattern p = Pattern.compile("^(\\d+\\.\\d+\\.\\d+)_?(\\d+)?$");
+        Matcher m = p.matcher(System.getProperty("java.version"));
+
+        if (m.find() && m.groupCount() >= 1 && m.groupCount() <= 2) {
+            String version;
+            int patchversion;
+
+            version = m.group(1);
+
+            if (m.groupCount() == 1) { // got version only
+                patchversion = 0;
+            } else { // got version and patch
+                patchversion = Integer.valueOf(m.group(2));
+            }
+
+            trueCardReset = (Helpers.versionCompare(version, "1.8.0") >= 0 && patchversion >= 20); // Java 1.8.0_20 and above have the correct behavior by default
+        } else {
+            System.err.println("Unable to detect Java version correctly, setting invertCardReset to TRUE and trying to continue, do not be surprised if card resets won't work!");
+            System.setProperty("sun.security.smartcardio.invertCardReset", "true");
+            trueCardReset = false;
+        }
+    }
 
     private static TerminalFactory getSelectedTerminalFactory(String terminalFactoryName, Object params) {
         Security.insertProviderAt(new de.srlabs.simlib.osmocardprovider.OsmoProvider(), 1);
@@ -40,7 +75,7 @@ public class ChannelHandler {
             } catch (NoSuchAlgorithmException e) {
                 System.out.println(LoggingUtils.formatDebugMessage("TerminalFactory of type " + terminalFactoryName + " does NOT exist."));
                 e.printStackTrace(System.err);
-                factory = null;
+                factory = null; // moronic java
                 System.exit(1);
             }
         }
@@ -49,12 +84,14 @@ public class ChannelHandler {
     }
 
     private ChannelHandler(int readerIndex, String terminalFactoryName) throws CardException {
+        initReset();
+
         _readerIndex = readerIndex;
         _terminalFactoryName = terminalFactoryName;
 
         TerminalFactory factory = getSelectedTerminalFactory(terminalFactoryName, null);
 
-        List terminals = null;
+        List<CardTerminal> terminals = null;
 
         try {
             terminals = factory.terminals().list();
@@ -71,7 +108,11 @@ public class ChannelHandler {
             System.exit(1);
         }
 
-        System.out.println("Terminals: " + terminals);
+        System.out.println("Terminals connected: " + terminals.size());
+        for (CardTerminal terminal : terminals) {
+            System.out.println(terminal);
+        }
+        System.out.println();
 
         if (terminals.size() < (readerIndex + 1)) {
             System.err.println(LoggingUtils.formatDebugMessage("No valid PC/SC reader under index " + readerIndex + ", start from zero!"));
@@ -80,8 +121,12 @@ public class ChannelHandler {
 
         _cardTerminal = (CardTerminal) terminals.get(readerIndex);
         System.out.println("Using terminal: " + _cardTerminal.getName());
-        _card = _cardTerminal.connect("T=0");
 
+        connectCard();
+    }
+
+    private void connectCard() throws CardException {
+        _card = _cardTerminal.connect("T=0");
         if (null != _card) {
             System.out.println("Card connected: " + _card);
             _cardChannel = _card.getBasicChannel();
@@ -93,7 +138,6 @@ public class ChannelHandler {
             System.err.println(LoggingUtils.formatDebugMessage("Unable to connect the card, exiting.."));
             System.exit(1);
         }
-
     }
 
     public static synchronized ChannelHandler getInstance(int readerIndex, String terminalFactoryName) throws CardException {
@@ -118,12 +162,15 @@ public class ChannelHandler {
     }
 
     public static synchronized CardChannel getDefaultChannel() throws CardException {
-        if (null == _instance) {
-            return getInstance()._cardChannel;
-        } else {
-            return _instance._cardChannel;
+        if (null == getInstance()) {
+            throw new IllegalStateException("Illegal state! There's no initialized channel to the card! Report this bug");
         }
 
+        if (_cardChannel == null) {
+            getInstance().connectCard();
+        }
+
+        return _cardChannel;
     }
 
     public static synchronized ResponseAPDU transmitOnDefaultChannel(CommandAPDU apdu) throws CardException {
@@ -132,6 +179,10 @@ public class ChannelHandler {
 
     public static synchronized ResponseAPDU transmitOnDefaultChannel(CommandAPDU apdu, boolean retry) throws CardException {
         ResponseAPDU response;
+
+        if (DEBUG) {
+            System.out.println("TRANSMIT: " + HexToolkit.toString(apdu.getBytes()));
+        }
 
         try {
             response = getDefaultChannel().transmit(apdu);
@@ -159,16 +210,37 @@ public class ChannelHandler {
             }
         }
 
+        if (DEBUG) {
+            if (null != response) {
+                System.out.println("RESPONSE: " + HexToolkit.toString(response.getBytes()));
+            } else {
+                System.out.println("RESPONSE: null");
+            }
+        }
+
         return response;
     }
 
-    public static void closeChannel() throws CardException {
+    public static void disconnectCard() throws CardException {
         if (null != _instance) {
+            final ExecutorService executor = Executors.newSingleThreadExecutor();
+            final Future future = executor.submit(new Callable<Object>() {
+                @Override
+                public Object call() throws Exception {
+                    try {
+                        _cardChannel = null;
+                        _card.disconnect(true); // timeout is here as this sometimes gets stuck and kill -9 <java> sucks
+                        _card = null;
+                    } catch (IllegalStateException e) {
+                    } // whatever we don't wanna know
+                    return null;
+                }
+            });
+            executor.shutdown();
             try {
-                getInstance()._cardChannel.close();
-                _card.disconnect(true);
-            } catch (IllegalStateException e) {
-            } // whatever we don't wanna know
+                future.get(1, TimeUnit.SECONDS);
+            } catch (TimeoutException | ExecutionException | InterruptedException e) { // if it doesn't work we don't care
+            }
         }
     }
 
@@ -177,9 +249,13 @@ public class ChannelHandler {
             System.out.println(LoggingUtils.formatDebugMessage("Resetting the card.."));
         }
         //_instance._cardChannel.getCard().disconnect(true);
-        // documentation says this should be TRUE to reset the card, but there is a bug in Java (reverse logic)
-        // https://bugs.openjdk.java.net/show_bug.cgi?id=100151)
-        _instance._cardChannel.getCard().disconnect(false);
+        // documentation says this should be TRUE to reset the card, but there is a bug in Java (reverse logic), nobody knows when and if it will ever get fixed (https://bugs.openjdk.java.net/show_bug.cgi?id=100151), 2012-04-01, the bug is still present in 1.6.0_31
+        /* recent development is this says (https://bugs.openjdk.java.net/browse/JDK-8050495#comment-13559746)
+         * invertCardReset=true => This property is set by default for 7u72 and later JDK 7 Updates. By default, no behavioral change will be noticed in this area for JDK 7 Update releases.
+         * invertCardReset=false => This is default for 8u20 and later JDK 8 Updates.
+         */
+
+        _cardChannel.getCard().disconnect(trueCardReset);
 
         _card = _cardTerminal.connect("T=0");
         if (null != _card) {

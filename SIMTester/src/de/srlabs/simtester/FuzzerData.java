@@ -5,7 +5,6 @@ public class FuzzerData {
     public byte _counter;
     public int _kic;
     public int _kid;
-    public boolean _cipherCP;
     public boolean _cipherPoR;
     
     public FuzzerData(String name, byte counter, int kic, int kid, boolean cipherPoR) {

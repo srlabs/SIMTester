@@ -54,6 +54,22 @@ public class HexToolkit {
         return toString(data, 0, data.length);
     }
 
+    public static String toText(byte data[]) {
+        StringBuilder text = new StringBuilder();
+
+        for (int i = 0; i < data.length; i++) {
+            text.append((char) data[i]);
+        }
+
+        return text.toString();
+    }
+
+    /**
+     * byte swap for 1 byte
+     *
+     * @param value Value to byte swap.
+     * @return Byte swapped representation.
+     */
     public static byte swap(byte value) {
         return (byte) ((short) ((short) (value & (short) 0x0F) << 4) + (short) ((short) (value & (short) 0xF0) >> 4));
     }

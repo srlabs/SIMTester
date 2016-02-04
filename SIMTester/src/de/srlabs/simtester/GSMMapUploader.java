@@ -42,7 +42,7 @@ public class GSMMapUploader {
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 
-            InputStream keystoreStream = Main.class.getResourceAsStream("gsmmap.srlabs.de_truststore");
+            InputStream keystoreStream = SIMTester.class.getResourceAsStream("gsmmap.srlabs.de_truststore");
 
             keystore.load(keystoreStream, "123456".toCharArray());
 

@@ -1,6 +1,8 @@
 package de.srlabs.simlib;
 
 import java.io.FileNotFoundException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import javax.smartcardio.CardException;
 
 public class CommonFileReader {
@@ -16,8 +18,73 @@ public class CommonFileReader {
      * EF_ADN 3f007f106f3a
      * EF_SST 3f007f206f38
      */
+    public static byte[] readLOCI() throws CardException {
 
-    public static byte[] readSMSP() {
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
+
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("reading EF_LOCI file"));
+        }
+
+        SimCardFile file;
+
+        try {
+            file = FileManagement.selectPath("3f007f206f7e");
+        } catch (FileNotFoundException e) {
+            file = null;
+        }
+
+        if (null != file) {
+
+            byte[] content = ((SimCardTransparentFile) file).getContent();
+            if (null != content) {
+                return content;
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    public static byte[] readKc() throws CardException {
+
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
+
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("reading EF_LOCI file"));
+        }
+
+        SimCardFile file;
+
+        try {
+            file = FileManagement.selectPath("3f007f206f20");
+        } catch (FileNotFoundException e) {
+            file = null;
+        }
+
+        if (null != file) {
+
+            byte[] content = ((SimCardTransparentFile) file).getContent();
+            if (null != content) {
+                return content;
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    }
+
+    public static ArrayList<byte[]> readSMSP() {
+
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
 
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("reading EF_SMSP file"));
@@ -26,25 +93,26 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f007f206f42");
+            file = FileManagement.selectPath("3f007f106f42");
         } catch (FileNotFoundException | CardException e) {
             file = null;
         }
-        
-        System.out.println(file.getFileId());
 
         if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
+            ArrayList<byte[]> result = new ArrayList();
 
-            byte[] content;
-                    
             try {
-                content = ((SimCardTransparentFile) file).getContent();
+                SimCardLinearFixedFile smsp = ((SimCardLinearFixedFile) file);
+
+                for (int i = 1; i <= smsp.getNumberOfRecords(); i++) {
+                    result.add(smsp.getRecord(i));
+                }
             } catch (CardException e) {
-                content = null;
+                e.printStackTrace(System.err);
             }
 
-            if (null != content) {
-                return content;
+            if (!result.isEmpty()) {
+                return result;
             } else {
                 return null;
             }
@@ -61,7 +129,11 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f007f106f40");
+            if (SIMLibrary.third_gen_apdu) {
+                file = FileManagement.selectPath("6f40");
+            } else {
+                file = FileManagement.selectPath("3f007f106f40");
+            }
         } catch (FileNotFoundException e) {
             file = null;
         }
@@ -84,34 +156,47 @@ public class CommonFileReader {
     }
 
     public static String decodeMSISDN(byte[] msisdn_content) {
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("decoding " + HexToolkit.toString(msisdn_content)));
+        }
+        
         int alpha_id_size = msisdn_content.length - 14; // 14 bytes is the fixed size for the rest of the record
         byte len = msisdn_content[alpha_id_size];
+        
+        if (len == 0 || len > 13) { // means len is a nonsense number
+            return null;
+        }
+        
         byte ton_npi = msisdn_content[alpha_id_size + 1];
         String result = "";
-        
+
         if (HexToolkit.isBitSet(ton_npi, 4) && !HexToolkit.isBitSet(ton_npi, 5) && !HexToolkit.isBitSet(ton_npi, 6)) {
             result += "+";
         }
-        
-        for (int i=alpha_id_size+2; i<=(len+alpha_id_size); i++) {
+
+        for (int i = alpha_id_size + 2; i <= (len + alpha_id_size); i++) {
             result += HexToolkit.toString(HexToolkit.swap(msisdn_content[i]));
         }
-        
+
         return result;
     }
 
-    
-    
-    public static byte[] readSST() {
-
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("reading EF_SST file"));
-        }
+    public static byte[] readST() {
 
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f007f206f38");
+            if (SIMLibrary.third_gen_apdu) {
+                if (DEBUG) {
+                    System.out.println(LoggingUtils.formatDebugMessage("reading EF_UST file"));
+                }
+                file = FileManagement.selectPath("6f38");
+            } else {
+                if (DEBUG) {
+                    System.out.println(LoggingUtils.formatDebugMessage("reading EF_SST file"));
+                }
+                file = FileManagement.selectPath("3f007f206f38");
+            }
         } catch (FileNotFoundException | CardException e) {
             file = null;
         }
@@ -119,7 +204,7 @@ public class CommonFileReader {
         if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
 
             byte[] content;
-                    
+
             try {
                 content = ((SimCardTransparentFile) file).getContent();
             } catch (CardException e) {
@@ -152,6 +237,10 @@ public class CommonFileReader {
 
     public static byte[] readADN() throws CardException {
 
+        if (SIMLibrary.third_gen_apdu) {
+            System.err.println(LoggingUtils.formatDebugMessage("3G format not yet implemented!"));
+        }
+
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("reading EF_ADN file"));
         }
@@ -173,7 +262,7 @@ public class CommonFileReader {
             if (DEBUG) {
                 System.out.println(LoggingUtils.formatDebugMessage("Record length: " + recordLength + ", Alpha ID length: " + alphaLength));
             }
-            
+
             for (int i = 1; i <= nrOfRecords; i++) {
                 byte[] content = ((SimCardLinearFixedFile) file).getRecord(i);
                 boolean empty = true;
@@ -205,7 +294,11 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f007f206f07");
+            if (SIMLibrary.third_gen_apdu) {
+                file = FileManagement.selectPath("6f07");
+            } else {
+                file = FileManagement.selectPath("3f007f206f07");
+            }
         } catch (FileNotFoundException e) {
             file = null;
         }
@@ -253,7 +346,11 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f002fe2");
+            if (SIMLibrary.third_gen_apdu) {
+                file = FileManagement.selectPath("2fe2");
+            } else {
+                file = FileManagement.selectPath("3f002fe2");
+            }
         } catch (FileNotFoundException e) {
             file = null;
         }
@@ -282,7 +379,11 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f000002");
+            if (SIMLibrary.third_gen_apdu) {
+                file = FileManagement.selectPath("0002");
+            } else {
+                file = FileManagement.selectPath("3f000002");
+            }
         } catch (FileNotFoundException e) {
             file = null;
         }
@@ -308,7 +409,11 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            file = FileManagement.selectPath("3f002f00");
+            if (SIMLibrary.third_gen_apdu) {
+                file = FileManagement.selectPath("2f00");
+            } else {
+                file = FileManagement.selectPath("3f002f00");
+            }
         } catch (FileNotFoundException e) {
             file = null;
         }
@@ -327,5 +432,44 @@ public class CommonFileReader {
         } else {
             return null;
         }
+    }
+
+    public static String getUSIMAID() throws CardException {
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("reading EF_DIR file"));
+        }
+
+        SimCardFile file;
+
+        try {
+            if (SIMLibrary.third_gen_apdu) {
+                file = FileManagement.selectPath("2f00");
+            } else {
+                file = FileManagement.selectPath("3f002f00");
+            }
+        } catch (FileNotFoundException e) {
+            if (DEBUG) {
+                System.out.println(LoggingUtils.formatDebugMessage("FileNotFoundException: " + e.getMessage()));
+            }
+            return null;
+        }
+
+        if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
+            if (file instanceof SimCardLinearFixedFile) {
+                byte[] recordContent = ((SimCardLinearFixedFile) file).getFirstRecord();
+                if (null != recordContent) {
+                    /* FIXME: no AID present case is not implemented (all 0xFF) */
+                    byte[] aid_data = TLVToolkit.getTLV(recordContent, (byte) 0x4F);
+                    if (null != aid_data) {
+                        byte[] aid = Arrays.copyOfRange(aid_data, 2, 2 + aid_data[1]);
+                        return HexToolkit.toString(aid);
+                    } else {
+                        throw new CardException("EF_DIR content malformed or empty, perhaps this card does NOT support 3G APDUs?");
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 }
