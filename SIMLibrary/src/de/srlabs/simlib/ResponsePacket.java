@@ -43,6 +43,13 @@ public class ResponsePacket {
     }
 
     public void parse(byte[] data, long originalCounter, boolean strict) throws ParseException {
+
+        // Ignore processing if data is a Proactive command
+        if (data.length > 0 && data[0] == (byte) 0xD0) {
+            _bytes = data;
+            return;
+        }
+        
         if (data.length < 16) {
             // RPH (3 bytes) + RPL (2 bytes) + RHL (1 byte) + TAR (3 bytes) + CNTR (5 bytes) + PCNTR (1 bytes) + RSC (1 byte)
             if (strict) {
@@ -232,17 +239,39 @@ public class ResponsePacket {
         return ARD;
     }
 
+    public boolean isDecryptedCounter() {
+        long responseCounter = this.getCounter();
+        byte statusCode = this.getStatusCode();
+        
+        /* these counter values indicate no decryption was performed */
+        if (responseCounter == 0 || responseCounter == 1) {
+            return false;
+        }
+        
+        /* the response is encrypted, this should not be confused with a decrypted counter */
+        if (_bytes.length == 17 || PCNTR != (byte) 0x00 || statusCode < (byte) 0x00 || statusCode > (byte) 0x0D) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static class Helpers {
 
         public static byte[] findResponsePacket(byte[] data) {
             int index;
+            int offset = 0;
+
+            if (data.length > 2 && data[data.length - 2] == (byte) 0x90 && data[data.length - 1] == (byte) 0x00) {
+                offset = 2;
+            }
 
             if ((index = HexToolkit.indexOfByteArrayInByteArray(data, ResponsePacket.RPH)) != -1) {
-                return Arrays.copyOfRange(data, index, data.length);
+                return Arrays.copyOfRange(data, index, data.length - offset);
             }
 
             if ((index = HexToolkit.indexOfByteArrayInByteArray(data, ResponsePacket.RPH2)) != -1) {
-                return Arrays.copyOfRange(data, index, data.length);
+                return Arrays.copyOfRange(data, index, data.length - offset);
             }
 
             return null;

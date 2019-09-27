@@ -420,6 +420,12 @@ public class CommonFileReader {
 
         if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
             if (file instanceof SimCardLinearFixedFile) {
+                int numRecords = ((SimCardLinearFixedFile) file).getNumberOfRecords();
+                int recordLength = ((SimCardLinearFixedFile) file).getRecordLength();
+                for (int i = 1; i <= numRecords; i++) {
+                    byte[] content = ((SimCardLinearFixedFile) file).getRecord(i);
+                    System.out.println("Record " + i + ": " + HexToolkit.toString(content));
+                }
                 byte[] recordContent = ((SimCardLinearFixedFile) file).getFirstRecord();
                 if (null != recordContent) {
                     return HexToolkit.toString(recordContent);

@@ -49,7 +49,7 @@ public class SIMTester {
     public static String EF_DIR = null;
     public static String AUTH = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v1.8.1, 2016-02-04";
+    private static final String version = "SIMTester v1.9, 2019-09-26";
     private static Fuzzer _fuzzer = null;
     private static TARScanner _tarscanner = null;
     private static CSVWriter _writer = null;
@@ -60,6 +60,8 @@ public class SIMTester {
         System.out.println("########################################");
         System.out.println("  " + version);
         System.out.println("  Lukas Kuzmiak (lukas@srlabs.de)       ");
+        System.out.println("  Luca Melette  (luca@srlabs.de)        ");
+        System.out.println("  Jonas Schmid  (jonas@srlabs.de)       ");
         System.out.println("  Security Research Labs, Berlin, " + Calendar.getInstance().get(Calendar.YEAR));
         System.out.println("########################################");
         System.out.println();
@@ -343,7 +345,7 @@ public class SIMTester {
         switch (_fuzzingLevel) {
             case "FULL":
                 fuzzers.addAll(FuzzerFactory.getAllFuzzers());
-                keysets = new ArrayList<>(Arrays.asList(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15));
+                keysets = new ArrayList<>(Arrays.asList(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15));
                 break;
             case "QUICK":
                 fuzzers.add(FuzzerFactory.getFuzzer(1));
@@ -368,8 +370,8 @@ public class SIMTester {
         if (null != customFuzzers) {
             fuzzers.clear();
             for (Integer oneFuzzer : customFuzzers) {
-                if (oneFuzzer < 1 || oneFuzzer > FuzzerFactory.getAmountOfFuzzers()) {
-                    System.err.println(LoggingUtils.formatDebugMessage("Fuzzer(s) you specified does NOT exist, use values 1-" + FuzzerFactory.getAmountOfFuzzers() + "!"));
+                if (oneFuzzer < 0 || oneFuzzer > FuzzerFactory.getAmountOfFuzzers()) {
+                    System.err.println(LoggingUtils.formatDebugMessage("Fuzzer(s) you specified does NOT exist, use values 0-" + FuzzerFactory.getAmountOfFuzzers() + "!"));
                     System.exit(1);
                 }
                 fuzzers.add(FuzzerFactory.getFuzzer(oneFuzzer));
@@ -401,7 +403,7 @@ public class SIMTester {
     private static void printSummary(Fuzzer fuzzer) {
         System.out.println();
         if (fuzzer.isThereAWeaknessFound()) {
-            if (fuzzer.unprotectedTARsResponses.size() > 0) {
+            if (fuzzer.unprotectedTARsResponses.size() > 0 || fuzzer.wibCommandExecuted.size() > 0 || fuzzer.satCommandExecuted.size() > 0 ) {
                 System.out.println("\033[91mSIMTester has discovered following weaknesses:\033[0m");
             } else {
                 System.out.println("\033[93mSIMTester has discovered following weaknesses:\033[0m");
@@ -448,6 +450,57 @@ public class SIMTester {
                 Collections.sort(fuzzer.unprotectedTARsResponses, new FuzzerResultComparator()); // sort them by TAR
                 FuzzerResult previous_fr = null;
                 for (FuzzerResult fr : fuzzer.unprotectedTARsResponses) {
+                    if (null != previous_fr && Arrays.equals(previous_fr._commandPacket.getTAR(), fr._commandPacket.getTAR()) && previous_fr._commandPacket.getKeyset() == fr._commandPacket.getKeyset()) {
+                        System.out.printf(" %s", HexToolkit.toString(fr._responsePacket.getBytes()));
+                    } else {
+                        System.out.printf("\n%-6s %6s %s", HexToolkit.toString(fr._commandPacket.getTAR()), fr._commandPacket.getKeyset(), HexToolkit.toString(fr._responsePacket.getBytes()));
+                    }
+                    previous_fr = fr;
+                }
+                System.out.println();
+            }
+            if (fuzzer.wibCommandExecuted.size() > 0) {
+                System.out.println();
+                System.out.println("The following TARs/keysets accepted and executed a WIB request without any security:");
+                System.out.printf("%-6s %6s %s\n", "TAR", "keyset", "Response packets");
+                fuzzer.wibCommandExecuted = new ArrayList<>(new HashSet(fuzzer.wibCommandExecuted)); // make the results unique
+                Collections.sort(fuzzer.wibCommandExecuted, new FuzzerResultComparator()); // sort them by TAR
+                FuzzerResult previous_fr = null;
+                for (FuzzerResult fr : fuzzer.wibCommandExecuted) {
+                    if (null != previous_fr && Arrays.equals(previous_fr._commandPacket.getTAR(), fr._commandPacket.getTAR()) && previous_fr._commandPacket.getKeyset() == fr._commandPacket.getKeyset()) {
+                        System.out.printf(" %s", HexToolkit.toString(fr._responsePacket.getBytes()));
+                    } else {
+                        System.out.printf("\n%-6s %6s %s", HexToolkit.toString(fr._commandPacket.getTAR()), fr._commandPacket.getKeyset(), HexToolkit.toString(fr._responsePacket.getBytes()));
+                    }
+                    previous_fr = fr;
+                }
+                System.out.println();
+            }
+            if (fuzzer.satCommandExecuted.size() > 0) {
+                System.out.println();
+                System.out.println("The following TARs/keysets accepted and executed a S@T request without any security:");
+                System.out.printf("%-6s %6s %s\n", "TAR", "keyset", "Response packets");
+                fuzzer.satCommandExecuted = new ArrayList<>(new HashSet(fuzzer.satCommandExecuted)); // make the results unique
+                Collections.sort(fuzzer.satCommandExecuted, new FuzzerResultComparator()); // sort them by TAR
+                FuzzerResult previous_fr = null;
+                for (FuzzerResult fr : fuzzer.satCommandExecuted) {
+                    if (null != previous_fr && Arrays.equals(previous_fr._commandPacket.getTAR(), fr._commandPacket.getTAR()) && previous_fr._commandPacket.getKeyset() == fr._commandPacket.getKeyset()) {
+                        System.out.printf(" %s", HexToolkit.toString(fr._responsePacket.getBytes()));
+                    } else {
+                        System.out.printf("\n%-6s %6s %s", HexToolkit.toString(fr._commandPacket.getTAR()), fr._commandPacket.getKeyset(), HexToolkit.toString(fr._responsePacket.getBytes()));
+                    }
+                    previous_fr = fr;
+                }
+                System.out.println();
+            }
+            if (fuzzer.decryptionOracleResponses.size() > 0) {
+                System.out.println();
+                System.out.println("The following TARs/keysets act as a decryption oracle (decrypted counter value):");
+                System.out.printf("%-6s %6s %s\n", "TAR", "keyset", "Response packets");
+                fuzzer.decryptionOracleResponses = new ArrayList<>(new HashSet(fuzzer.decryptionOracleResponses)); // make the results unique
+                Collections.sort(fuzzer.decryptionOracleResponses, new FuzzerResultComparator()); // sort them by TAR
+                FuzzerResult previous_fr = null;
+                for (FuzzerResult fr : fuzzer.decryptionOracleResponses) {
                     if (null != previous_fr && Arrays.equals(previous_fr._commandPacket.getTAR(), fr._commandPacket.getTAR()) && previous_fr._commandPacket.getKeyset() == fr._commandPacket.getKeyset()) {
                         System.out.printf(" %s", HexToolkit.toString(fr._responsePacket.getBytes()));
                     } else {
@@ -636,10 +689,10 @@ public class SIMTester {
                 List<String> cmdTARs = Arrays.asList(cmdline.getOptionValues("t"));
                 customTARs = new ArrayList<>();
                 for (String cmdTAR : cmdTARs) {
-                    if (cmdTAR.startsWith("RFM") || cmdTAR.startsWith("RAM")) {
+                    if (cmdTAR.startsWith("RFM") || cmdTAR.startsWith("RAM") || cmdTAR.startsWith("WIB") || cmdTAR.startsWith("SAT")) {
                         customTARs.add(cmdTAR);
                     } else {
-                        System.err.println(LoggingUtils.formatDebugMessage("Each TAR has to match a type (RFM, RAM), this one does not: " + cmdTAR));
+                        System.err.println(LoggingUtils.formatDebugMessage("Each TAR has to match a type (RFM, RAM, WIB, SAT), this one does not: " + cmdTAR));
                     }
                 }
                 if (customTARs.isEmpty()) {

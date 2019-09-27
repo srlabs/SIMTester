@@ -10,55 +10,61 @@ public class FuzzerFactory {
 
     private final static Map<Integer, FuzzerData> fuzzers = new HashMap<Integer, FuzzerData>() {
         {
-            // FuzzerData(String name, byte counter, int kic, int kid, boolean cipherCP, boolean cipherPoR)
+            //FuzzerData(String name, byte counter, int kic, int kid, boolean cipherCP, boolean requestPoR, boolean cipherPoR)
+
+            // special case for WIB/SAT
+            put(0, new FuzzerData("fuzzer0", CommandPacket.CNTR_NO_CNTR_AVAILABLE,
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, false, false));
+
+            // just signature
             put(1, new FuzzerData("fuzzer1", CommandPacket.CNTR_NO_CNTR_AVAILABLE,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, false));
 
             put(2, new FuzzerData("fuzzer2", CommandPacket.CNTR_CNTR_AVAILABLE,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, false));
 
             put(3, new FuzzerData("fuzzer3", CommandPacket.CNTR_CNTR_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, false));
 
             put(4, new FuzzerData("fuzzer4", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, false));
 
             put(5, new FuzzerData("fuzzer5", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_DES_CBC, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_DES_CBC, true, false));
 
             put(6, new FuzzerData("fuzzer6", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_3DES_CBC_2KEYS, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_3DES_CBC_2KEYS, true, false));
 
             put(7, new FuzzerData("fuzzer7", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, false));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, true, false));
 
             put(8, new FuzzerData("fuzzer8", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, false));
+                    CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, true, false));
 
             // ciphered PoRs - same old fuzzers as we used (above) with ciphering enabled for PoRs
             put(9, new FuzzerData("fuzzer9", CommandPacket.CNTR_NO_CNTR_AVAILABLE,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(10, new FuzzerData("fuzzer10", CommandPacket.CNTR_CNTR_AVAILABLE,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(11, new FuzzerData("fuzzer11", CommandPacket.CNTR_CNTR_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(12, new FuzzerData("fuzzer12", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_IMPLICIT, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(13, new FuzzerData("fuzzer13", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_DES_CBC, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_DES_CBC, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(14, new FuzzerData("fuzzer14", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_3DES_CBC_2KEYS, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_3DES_CBC_2KEYS, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(15, new FuzzerData("fuzzer15", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_IMPLICIT, true));
+                    CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_IMPLICIT, true, true));
 
             put(16, new FuzzerData("fuzzer16", CommandPacket.CNTR_CNTR_ONE_HIGHER,
-                    CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, true));
+                    CommandPacket.KIC_ALGO_3DES_CBC_3KEYS, CommandPacket.KID_ALGO_3DES_CBC_3KEYS, true, true));
         }
     };
 
@@ -76,15 +82,15 @@ public class FuzzerFactory {
     public static List<String> defaultTARs = new ArrayList<String>() {
         {
             add("RAM:000000");
-            add("RFM:000001");
-            add("RFM:000002");
-            add("RFM:000003");
-            add("RFM:000004");
-            add("RFM:000005");
-            add("RFM:000006");
-            add("RFM:000007");
-            add("RFM:000008");
-            add("RFM:000009");
+            add("WIB:000001");
+            add("WIB:000002");
+            add("WIB:000003");
+            add("WIB:000004");
+            add("WIB:000005");
+            add("WIB:000006");
+            add("WIB:000007");
+            add("WIB:000008");
+            add("WIB:000009");
             add("RFM:00000A");
             add("RFM:00000B");
             add("RFM:00000C");
@@ -139,13 +145,13 @@ public class FuzzerFactory {
             add("RFM:4E5650");
             add("RFM:4F4350");
             add("RFM:504F53");
-            add("RFM:505348");
+            add("SAT:505348");
             add("RFM:514F43");
             add("RFM:524144");
             add("RFM:524648");
             add("RFM:524F4D");
             add("RFM:533347");
-            add("RFM:534054");
+            add("SAT:534054");
             add("RFM:534143");
             add("RFM:534441");
             add("RFM:534F44");
@@ -184,17 +190,17 @@ public class FuzzerFactory {
             add("RFM:B20100");
             add("RFM:B20102");
             add("RFM:BAFE02");
-            add("RFM:BFFF00");
-            add("RFM:BFFF01");
-            add("RFM:BFFF02");
-            add("RFM:BFFF03");
-            add("RFM:BFFF04");
-            add("RFM:BFFF05");
-            add("RFM:BFFF15");
-            add("RFM:BFFF22");
-            add("RFM:BFFFBA");
-            add("RFM:BFFFEE");
-            add("RFM:BFFFFF");
+            add("WIB:BFFF00");
+            add("WIB:BFFF01");
+            add("WIB:BFFF02");
+            add("WIB:BFFF03");
+            add("WIB:BFFF04");
+            add("WIB:BFFF05");
+            add("WIB:BFFF15");
+            add("WIB:BFFF22");
+            add("WIB:BFFFBA");
+            add("WIB:BFFFEE");
+            add("WIB:BFFFFF");
             add("RFM:C00000");
             add("RFM:C0013D");
             add("RFM:D00003");

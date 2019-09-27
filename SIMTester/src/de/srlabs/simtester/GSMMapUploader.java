@@ -39,6 +39,8 @@ public class GSMMapUploader {
         System.out.println("Trying to upload data to gsmmap.org ..");
         
         try {
+            System.setProperty("jsse.enableSNIExtension", "false");
+            
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
             KeyStore keystore = KeyStore.getInstance(KeyStore.getDefaultType());
 

@@ -34,28 +34,36 @@ public class ProactiveCommand {
         if ((byte) 0x81 == data[1]) {
             offset = 1;
         } else {
-            offset = 0;
+            offset = 2;
         }
 
-        if ((byte) (data.length - 2 - offset) != data[1 + offset]) {
+        if ((byte) (data.length - offset) != data[1]) {
             throw new ParseException("data don't correspont with length (2nd byte); data dump -> " + HexToolkit.toString(data), 0);
         }
 
         if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("Raw ProactiveCommand: " + HexToolkit.toString(data)));
+            System.out.println(LoggingUtils.formatDebugMessage("Raw ProactiveCommand: " + HexToolkit.toString(data) + " offset: " + offset));
         }
 
-        if ((data[2 + offset] & 0xFF) != 0x81) {
-            throw new ParseException("Unable to find COMMAND DETAILS TAG (0x81) at position " + (2 + offset) + ", data: " + HexToolkit.toString(data), 0);
+        if ((data[offset] & 0x7F) != 0x01) {
+            throw new ParseException("Unable to find COMMAND DETAILS TAG (0x81) at position " + offset + ", data: " + HexToolkit.toString(data), 0);
         }
 
-        System.arraycopy(data, 2 + offset, command_details, 0, 5); // copy COMMAND DETAILS
+        System.arraycopy(data, offset, command_details, 0, 5); // copy COMMAND DETAILS
 
-        if ((data[2 + offset + command_details.length] & 0xFF) != 0x82) {
-            throw new ParseException("Unable to find DEVICE IDENTITIES TAG (0x82) at position " + (2 + offset + command_details.length) + ", data: " + HexToolkit.toString(data), 0);
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("Found Command details tag: " + HexToolkit.toString(command_details)));
         }
 
-        System.arraycopy(data, 2 + offset + command_details.length, device_identities, 0, 4); // copy DEVICE IDENTITIES
+        if ((data[offset + command_details.length] & 0x7F) != 0x02) {
+            throw new ParseException("Unable to find DEVICE IDENTITIES TAG (0x82) at position " + (offset + command_details.length) + ", data: " + HexToolkit.toString(data), 0);
+        }
+
+        System.arraycopy(data, offset + command_details.length, device_identities, 0, 4); // copy DEVICE IDENTITIES
+
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("Found Device identities tag: " + HexToolkit.toString(device_identities)));
+        }
 
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("ProactiveCommand: " + identifyProactiveCommand(command_details)));
@@ -116,7 +124,7 @@ public class ProactiveCommand {
     public static String identifyProactiveCommand(byte[] CommandDetails) {
         String name = "NOT IDENTIFIED";
 
-        if ((byte) 0x81 == CommandDetails[0] && CommandDetails.length == 5) {
+        if (((byte) 0x01 == (CommandDetails[0] & 0x7F)) && CommandDetails.length == 5) {
             switch (CommandDetails[3]) {
                 case (byte) 0x03:
                     name = "POLL INTERVAL";
@@ -124,11 +132,26 @@ public class ProactiveCommand {
                 case (byte) 0x05:
                     name = "SET UP EVENT LIST";
                     break;
+                case (byte) 0x10:
+                    name = "SETUP CALL";
+                    break;
+                case (byte) 0x11:
+                    name = "SEND SS";
+                    break;
+                case (byte) 0x12:
+                    name = "SEND USSD";
+                    break;
                 case (byte) 0x13:
                     name = "SEND SHORT MESSAGE";
                     break;
+                case (byte) 0x20:
+                    name = "PLAY TONE";
+                    break;
                 case (byte) 0x21:
                     name = "DISPLAY TEXT";
+                    break;
+                case (byte) 0x23:
+                    name = "GET INPUT";
                     break;
                 case (byte) 0x25:
                     name = "SET UP MENU";
