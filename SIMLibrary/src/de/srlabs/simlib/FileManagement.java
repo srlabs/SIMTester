@@ -48,7 +48,7 @@ public class FileManagement {
                 }
             }
 
-            switch ((byte) selectResponse.getFileType()) { // fileType byte
+            switch (selectResponse.getFileType()) { // fileType byte
                 case SimCardFile.MF:
                     selectedFile = new SimCardMasterFile(selectResponse);
                     if (DEBUG) {

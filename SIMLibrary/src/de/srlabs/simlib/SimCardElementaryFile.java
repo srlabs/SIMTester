@@ -6,6 +6,8 @@ public abstract class SimCardElementaryFile extends SimCardFile {
     public final static int EF_TRANSPARENT = (byte) 0x00;
     public final static int EF_LINEAR_FIXED = (byte) 0x01;
     public final static int EF_CYCLIC = (byte) 0x03;
+    public final static int EF_NO_INFO = (byte) 0x04;
+    public final static int EF_BER_TLV = (byte) 0x05;
 
     public SimCardElementaryFile(SelectResponse selectResponse) {
         super(selectResponse);
