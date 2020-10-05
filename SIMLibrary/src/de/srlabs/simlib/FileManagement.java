@@ -222,9 +222,7 @@ public class FileManagement {
             select = new CommandAPDU((byte) 0xA0, (byte) 0xA4, (byte) 0x00, (byte) 0x00, fileId);
         }
 
-        ResponseAPDU response = ChannelHandler.transmitOnDefaultChannel(select);
-
-        return response;
+        return ChannelHandler.transmitOnDefaultChannel(select);
     }
 
     private static SelectResponse2G getResponse2G(byte[] fileId, int bytes) throws CardException {
@@ -232,6 +230,7 @@ public class FileManagement {
 
         SelectResponse2G fileData = null;
 
+        // TODO: why is this if statement here if the fileData gets the same value for both cases?
         if ((short) 0x9000 == (short) response.getSW()) {
             if (DEBUG) {
                 System.out.println(LoggingUtils.formatDebugMessage("file " + HexToolkit.toString(fileId) + " selected; "));
