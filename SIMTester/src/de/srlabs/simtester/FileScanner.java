@@ -1,9 +1,7 @@
 package de.srlabs.simtester;
 
-import de.srlabs.simlib.Debug;
-import de.srlabs.simlib.FileManagement;
-import de.srlabs.simlib.LoggingUtils;
-import de.srlabs.simlib.SimCardFile;
+import de.srlabs.simlib.*;
+
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -154,6 +152,59 @@ public class FileScanner {
 
             System.out.printf("%-20s %4d %-15s %s\n", formatted_path, current.getFileSize(), fileInfo[0], fileInfo[1]);
         }
+    }
+
+    public static String getFIDforAID(String aid) throws CardException {
+        System.out.println();
+        System.out.println("\033[96mSearch for FID of AID " + aid + "\033[0m");
+
+        List<String> reservedValues = new ArrayList<>(Arrays.asList(
+                "3F00",
+                "3FFF",     // seems to be an alias for 3F00
+                "7FFF",     // root directory to refer to an AID
+                "FFFF"      // seems to point to 3F00
+        ));
+
+        // Select AID
+        byte[] fid;
+        try {
+            fid = FileManagement.selectAID(HexToolkit.fromString(aid));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        if (fid != null) {
+            return HexToolkit.toString(fid);
+        }
+
+        // For all options
+        for (int i = 0; i < 65535; i++) {
+            // Select each file
+            String fileId = String.format("%04X", i);
+
+            if (reservedValues.contains(fileId)) {
+                continue;
+            }
+
+            if (i % 500 == 0) {
+                System.out.println("Currently checking: " + fileId);
+            }
+
+            try {
+                SimCardFile file = FileManagement.selectFileByPath(fileId);
+
+                if (file.getFileType() == SimCardFile.ADF) {
+                    // We found an ADF, so we will just add it to userDefinedReservedIDs
+                    System.out.println("ADF found: " + fileId);
+                    return fileId;
+                }
+            } catch (FileNotFoundException ignored) {
+            }
+        }
+
+//        throw new CardException("The FID for AID " + aid + " was not found");
+        return null;
     }
 
     public static String formatPath(String path) {

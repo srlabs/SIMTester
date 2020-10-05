@@ -137,7 +137,7 @@ public class FileManagement {
      * @throws CardException
      * @throws FileNotFoundException
      */
-    public static SimCardFile selectFileByPathPath(String filePath) throws CardException, FileNotFoundException {
+    public static SimCardFile selectFileByPath(String filePath) throws CardException, FileNotFoundException {
         // Check if the card accepts 3G APDU
         if (!SIMLibrary.third_gen_apdu) {
             return null;
