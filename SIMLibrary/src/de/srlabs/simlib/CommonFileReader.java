@@ -296,11 +296,7 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            if (SIMLibrary.third_gen_apdu) {
-                file = FileManagement.selectPath("6f07");
-            } else {
-                file = FileManagement.selectPath("3f007f206f07");
-            }
+            file = FileManagement.selectPath("3f007f206f07");
         } catch (FileNotFoundException e) {
             file = null;
         }
