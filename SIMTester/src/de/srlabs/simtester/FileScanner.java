@@ -2,16 +2,9 @@ package de.srlabs.simtester;
 
 import de.srlabs.simlib.*;
 
-import java.io.FileNotFoundException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.SortedSet;
-import java.util.TreeSet;
 import javax.smartcardio.CardException;
+import java.io.FileNotFoundException;
+import java.util.*;
 
 public class FileScanner {
 
@@ -21,29 +14,29 @@ public class FileScanner {
     public static List<String> userDefinedReservedIDs = new ArrayList<>();
 
     private static Map<String, SimCardFile> scanSimFromPath(String startingDF,
-                                                   boolean breakAfterCountsMatch,
-                                                   boolean lazyScan,
-                                                   boolean scanAID) throws CardException, FileNotFoundException {
+                                                            boolean breakAfterCountsMatch,
+                                                            boolean lazyScan,
+                                                            boolean scanAID) throws CardException, FileNotFoundException {
         return scanSimFromPath(startingDF, breakAfterCountsMatch, lazyScan, new ArrayList<>(), new ArrayList<>(), scanAID);
     }
 
     /**
-     * @param startingDF: the DF where the scan starts; e.g.: 3F00 or 3F007F10 or 7FFF...
+     * @param startingDF:            the DF where the scan starts; e.g.: 3F00 or 3F007F10 or 7FFF...
      * @param breakAfterCountsMatch: exit the function if the count DF and EF matches (FIXME: 3G APDU do not return the DF/EF count, so this is useless)
-     * @param lazyScan: scan just by the possible values range defined in the standard
-     * @param aboveLevelFiles: a list with FID of the files that are on the above level as startingDF
-     * @param sameLevelFiles: a list with FID of the files that are on the same level as startingDF
-     * @param scanAID: this is `true` if we scan the files of an AID
+     * @param lazyScan:              scan just by the possible values range defined in the standard
+     * @param aboveLevelFiles:       a list with FID of the files that are on the above level as startingDF
+     * @param sameLevelFiles:        a list with FID of the files that are on the same level as startingDF
+     * @param scanAID:               this is `true` if we scan the files of an AID
      * @return Map<String, SimCardFile>: the String is the path of the file and SimCardFile is the file object
      * @throws CardException
      * @throws FileNotFoundException
      */
     private static Map<String, SimCardFile> scanSimFromPath(String startingDF,
-                                                   boolean breakAfterCountsMatch,
-                                                   boolean lazyScan,
-                                                   List<String> aboveLevelFiles,
-                                                   List<String> sameLevelFiles,
-                                                   boolean scanAID) throws CardException, FileNotFoundException {
+                                                            boolean breakAfterCountsMatch,
+                                                            boolean lazyScan,
+                                                            List<String> aboveLevelFiles,
+                                                            List<String> sameLevelFiles,
+                                                            boolean scanAID) throws CardException, FileNotFoundException {
         String currentDir;
 
         List<String> dirScan = new ArrayList<>();
@@ -295,7 +288,7 @@ public class FileScanner {
                     e.printStackTrace();
                     continue;
                 }
-                scanFileResults = scanSimFromPath("7FFF", breakAfterCountsMatch, lazyScan,true);
+                scanFileResults = scanSimFromPath("7FFF", breakAfterCountsMatch, lazyScan, true);
 
                 // Check the type of the AID (USIM, ISIM, etc)
                 // Based on the type, you should create the SimCardFileMapping class
