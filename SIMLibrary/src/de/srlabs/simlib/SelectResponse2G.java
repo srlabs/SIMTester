@@ -4,6 +4,8 @@ public class SelectResponse2G implements SelectResponse {
 
     private final String _fileId;
     private byte[] _responseData;
+    private int _fileSize;
+    private byte _fileType;
 
     public SelectResponse2G(byte[] responseData, String fileId) throws IllegalArgumentException {
         _fileId = HexToolkit.toString(new byte[]{(byte) responseData[4], (byte) responseData[5]});
@@ -12,6 +14,13 @@ public class SelectResponse2G implements SelectResponse {
             throw new IllegalArgumentException("Response Data (" + HexToolkit.toString(responseData) + ") you've provided doesn't seem to correspond to the fileId provided (" + fileId + "), fileId in data: " + _fileId);
         }
         _responseData = responseData;
+        _fileType = _responseData[6];
+
+        if (_fileType == SimCardFile.MF || _fileType == SimCardFile.DF) {
+            _fileSize = -1;
+        } else {
+            _fileSize = ((_responseData[2] & 0xFF) << 8) | (_responseData[3] & 0xFF);
+        }
     }
 
     @Override
@@ -26,7 +35,7 @@ public class SelectResponse2G implements SelectResponse {
 
     @Override
     public byte getFileType() {
-        return _responseData[6];
+        return _fileType;
     }
 
     @Override
@@ -37,6 +46,6 @@ public class SelectResponse2G implements SelectResponse {
 
     @Override
     public int getFileSize() {
-        return (int) (((_responseData[2] & 0xFF) << 8) | (_responseData[3] & 0xFF));
+        return _fileSize;
     }
 }
