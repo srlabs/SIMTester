@@ -20,138 +20,187 @@ public class FileScanner {
 
     public static List<String> userDefinedReservedIDs = new ArrayList<>();
 
-    public static void scanSim(boolean breakAfterCountsMatch, boolean lazyScan) throws CardException, FileNotFoundException {
+    public static Map<String, SimCardFile> scanSim(String startingDF,
+                                                   boolean breakAfterCountsMatch,
+                                                   boolean lazyScan,
+                                                   boolean scanAID) throws CardException, FileNotFoundException {
+        return scanSim(startingDF, breakAfterCountsMatch, lazyScan, new ArrayList<>(), new ArrayList<>(), scanAID);
+    }
 
+    /**
+     * @param startingDF: the DF where the scan starts; e.g.: 3F00 or 3F007F10 or 7FFF...
+     * @param breakAfterCountsMatch: exit the function if the count DF and EF matches (FIXME: 3G APDU do not return the DF/EF count, so this is useless)
+     * @param lazyScan: scan just by the possible values range defined in the standard
+     * @param aboveLevelFiles: a list with FID of the files that are on the above level as startingDF
+     * @param sameLevelFiles: a list with FID of the files that are on the same level as startingDF
+     * @param scanAID: this is `true` if we scan the files of an AID
+     * @return Map<String, SimCardFile>: the String is the path of the file and SimCardFile is the file object
+     * @throws CardException
+     * @throws FileNotFoundException
+     */
+    public static Map<String, SimCardFile> scanSim(String startingDF,
+                                                   boolean breakAfterCountsMatch,
+                                                   boolean lazyScan,
+                                                   List<String> aboveLevelFiles,
+                                                   List<String> sameLevelFiles,
+                                                   boolean scanAID) throws CardException, FileNotFoundException {
         String currentDir;
 
         List<String> dirScan = new ArrayList<>();
-        dirScan.add("3F00");
+        dirScan.add(startingDF);
 
-        Map<String, String> results = new HashMap<>();
+        Map<String, SimCardFile> results = new HashMap<>();
 
-        List<String> reservedValues = new ArrayList<>(Arrays.asList(new String[]{"3F00", "3FFF"/* seems to be an alias for 3F00 */, "7FFF"}));
+        // These are standard values that should not be scanned
+        // They also contain of FIDs of AIDs if there are any
+        List<String> reservedValues = new ArrayList<>(Arrays.asList(
+                "3F00",
+                "3FFF",     // seems to be an alias for 3F00
+                "7FFF",     // root directory to refer to an AID
+                "FFFF"      // seems to point to 3F00
+        ));
         reservedValues.addAll(userDefinedReservedIDs);
+
+        // This list keeps the FIDs of the discovered EF and DF
+        // It is used as `sameLevelFiles` param for the next iteration of the function (recursive function)
+        List<String> resultsFIDs = new ArrayList<>();
+        // Add the FID of the current DF
+        resultsFIDs.add(startingDF.substring(startingDF.length() - 4));
 
         if (DEBUG && !userDefinedReservedIDs.isEmpty()) {
             System.out.println(LoggingUtils.formatDebugMessage("File scanning added the following user-defined reserved file IDs: " + userDefinedReservedIDs));
         }
 
-        while (!dirScan.isEmpty()) { // while we have unscanned directories
+        System.out.println("Reserved values are: " + reservedValues);
+        System.out.println("FIDs from above level: " + aboveLevelFiles);
+        System.out.println("FIDs from same level: " + sameLevelFiles);
 
-            currentDir = (String) dirScan.get(0);
+        currentDir = dirScan.get(0);
+        SimCardFile current;
 
-            SimCardFile current = FileManagement.selectPath(currentDir);
+        if (scanAID) {
+            current = FileManagement.selectFileByPathPath(currentDir);
+        } else {
+            current = FileManagement.selectPath(currentDir);
+        }
 
-            int hasDFs = current.getNumberOfChildDFs();
-            int hasEFs = current.getNumberOfChildEFs();
+        int hasDFs = current.getNumberOfChildDFs();
+        int hasEFs = current.getNumberOfChildEFs();
 
-            System.out.println("[" + currentDir + "] Should have " + hasDFs + " directories and " + hasEFs + " files.");
+        System.out.println("[" + currentDir + "] Should have " + hasDFs + " directories and " + hasEFs + " files.");
 
-            int foundDFs = 0;
-            int foundEFs = 0;
+        results.put(currentDir, current);
 
-            String filePath;
-            boolean lastSelectSuccessful = false;
+        int foundDFs = 0;
+        int foundEFs = 0;
 
-            for (int i = 0; i <= 65535; i++) { // 65535 as fileId = FFFF
+        String filePath;
+        boolean lastSelectSuccessful = false;
 
-                if (lazyScan) {
-                    int level = currentDir.length() / 4;
-                    if (level == 1) {
-                        if ((i < Integer.parseInt("2F00", 16) || i > Integer.parseInt("2FFF", 16)) && (i < Integer.parseInt("7F00", 16) || i > Integer.parseInt("7FFF", 16))) {
-                            continue;
-                        }
-                    } else if (level == 2) {
-                        if ((i < Integer.parseInt("5F00", 16) || i > Integer.parseInt("5FFF", 16)) && (i < Integer.parseInt("6F00", 16) || i > Integer.parseInt("6FFF", 16))) {
-                            continue;
-                        }
-                    } else if (level == 3) {
-                        if (i < Integer.parseInt("4F00", 16) || i > Integer.parseInt("4FFF", 16)) {
-                            continue;
-                        }
+        for (int i = 0; i <= 65535; i++) { // 65535 as fileId = FFFF
+
+            if (lazyScan) {
+                int level = currentDir.length() / 4;
+                if (level == 1) {
+                    if ((i < Integer.parseInt("2F00", 16) || i > Integer.parseInt("2FFF", 16)) && (i < Integer.parseInt("7F00", 16) || i > Integer.parseInt("7FFF", 16))) {
+                        continue;
+                    }
+                } else if (level == 2) {
+                    if ((i < Integer.parseInt("5F00", 16) || i > Integer.parseInt("5FFF", 16)) && (i < Integer.parseInt("6F00", 16) || i > Integer.parseInt("6FFF", 16))) {
+                        continue;
+                    }
+                } else if (level == 3) {
+                    if (i < Integer.parseInt("4F00", 16) || i > Integer.parseInt("4FFF", 16)) {
+                        continue;
                     }
                 }
-
-                String fileId = String.format("%04X", i);
-
-                if (reservedValues.contains(fileId)) {
-                    if (DEBUG) {
-                        System.out.println(LoggingUtils.formatDebugMessage("======= RESERVED VALUE " + fileId + " FOUND, SKIPPING!! ======="));
-                    }
-                    continue;
-                }
-
-                if (lastSelectSuccessful) {
-                    filePath = currentDir + fileId;
-                } else {
-                    filePath = fileId;
-                }
-
-                if ((i % 100) == 0) {
-                    System.out.println("[" + currentDir + "] currently checking: " + filePath);
-                }
-
-                try {
-                    SimCardFile file = FileManagement.selectPath(filePath);
-                    System.out.println("[" + currentDir + "] File FOUND, id: " + file.getFileId() + ", type: " + file.getFileTypeName());
-                    if (file.getFileType() == SimCardFile.EF) {
-                        foundEFs++;
-                        results.put(currentDir + fileId, null);
-                        if (DEBUG) {
-                            System.out.println("[" + currentDir + "] Found EFs: " + foundEFs + "/" + hasEFs);
-                        }
-                    } else {
-                        foundDFs++;
-                        dirScan.add(currentDir + fileId); // add newly found dir to map, so it will be scanned.
-                        results.put(currentDir + fileId, null);
-                        reservedValues.add(fileId); //this is needed, because if we're in 3F00/7F20 and we're trying to select eg. 7F10 it will jump to 3F00/7F10, meaning such combination is impossible to have on the card anyway
-                        System.out.println("Reserved values are now: " + reservedValues);
-                        if (DEBUG) {
-                            System.out.println(LoggingUtils.formatDebugMessage("[" + currentDir + "] Found DFs: " + foundDFs + "/" + hasDFs));
-                        }
-                    }
-
-                    if (breakAfterCountsMatch && foundEFs == hasEFs && foundDFs == hasDFs) {
-                        System.out.println("[" + currentDir + "] Fuck this shit, already got all DFs and EFs, no point in scanning any further");
-                        break;
-                    }
-
-                    lastSelectSuccessful = true; // we have to select parent dir again for next iteration, if this was a directory not select parent directory again could create a mess
-
-                } catch (FileNotFoundException e) {
-                    lastSelectSuccessful = false; // such file does NOT exist, jump to next one and set this to false so we don't have to select parent dir again (MUCH faster)
-                }
-            } // end for
-            System.out.println("[" + currentDir + "] STATUS: found DFs: " + foundDFs + "/" + hasDFs + ", found EFs: " + foundEFs + "/" + hasEFs);
-            System.out.println();
-            dirScan.remove(currentDir);
-        } // end while
-
-        System.out.println();
-        System.out.println("============ RESULTS ============");
-        System.out.println();
-
-        SortedSet<String> sortedKeys = new TreeSet<>(results.keySet());
-
-        System.out.printf("%-20s %4s %-15s %s\n", "file path", "size", "file name", "file description");
-
-        Iterator iterator = sortedKeys.iterator();
-        while (iterator.hasNext()) {
-            String path = iterator.next().toString();
-            String formatted_path = formatPath(path);
-            SimCardFile current = FileManagement.selectPath(path);
-            /*if (current.getFileType() == SimCardFile.EF) {
-             System.out.print(" - " + current.getFileTypeName() + ", size: " + current.getFileSize());
-             } else {
-             System.out.print(" - " + current.getFileTypeName() + ", DFs: " + current.getNumberOfChildDFs() + ", EFs: " + current.getNumberOfChildEFs());
-             }*/
-            String[] fileInfo = new String[]{"N/A", "N/A"};
-            if (SimCardFile._fileMap.containsKey(formatted_path.toLowerCase())) {
-                fileInfo = SimCardFile._fileMap.get(formatted_path.toLowerCase());
             }
 
-            System.out.printf("%-20s %4d %-15s %s\n", formatted_path, current.getFileSize(), fileInfo[0], fileInfo[1]);
-        }
+            String fileId = String.format("%04X", i);
+
+            if (reservedValues.contains(fileId) || aboveLevelFiles.contains(fileId) || sameLevelFiles.contains(fileId)) {
+                if (DEBUG) {
+                    System.out.println(LoggingUtils.formatDebugMessage("======= RESERVED VALUE " + fileId + " FOUND, SKIPPING!! ======="));
+                }
+                continue;
+            }
+
+            if (lastSelectSuccessful || scanAID) {
+                filePath = currentDir + fileId;
+            } else {
+                filePath = fileId;
+            }
+
+            if ((i % 100) == 0) {
+                System.out.println("[" + currentDir + "] currently checking: " + fileId);
+            }
+
+            try {
+                SimCardFile file;
+                if (scanAID) {
+                    file = FileManagement.selectFileByPath(filePath);
+                } else {
+                    file = FileManagement.selectPath(filePath);
+                }
+
+                // We found a case where we selected 7F21 and the FID in the response was 7F20
+                // If we already have the FID in our results, we will ignore it
+                if (resultsFIDs.contains(file.getFileId())) {
+                    resultsFIDs.add(fileId);
+                    continue;
+                } else if (!file.getFileId().equals(fileId)) {
+                    // Return an exception if we do not have the FID in our results and the requested FID and the returned one are different
+                    throw new CardException(String.format("The selected FID (%s) does not match with the file FID (%s)", fileId, file.getFileId()));
+                }
+
+                System.out.println("[" + currentDir + "] File FOUND, id: " + file.getFileId() + ", type: " + file.getFileTypeName());
+
+                if (file.getFileType() == SimCardFile.EF || file.getFileType() == SimCardFile.INTERNAL_EF) {
+                    foundEFs++;
+                    results.put(currentDir + fileId, file);
+                    resultsFIDs.add(fileId);
+                    if (DEBUG) {
+                        System.out.println("[" + currentDir + "] Found EFs: " + foundEFs + "/" + hasEFs);
+                    }
+                } else if (file.getFileType() == SimCardFile.DF) {
+                    foundDFs++;
+                    dirScan.add(currentDir + fileId); // add newly found dir to map, so it will be scanned.
+                    results.put(currentDir + fileId, file);
+                    resultsFIDs.add(fileId); //this is needed, because if we're in 3F00/7F20 and we're trying to select eg. 7F10 it will jump to 3F00/7F10, meaning such combination is impossible to have on the card anyway
+                    System.out.println("Found FIDs are: " + resultsFIDs);
+                    if (DEBUG) {
+                        System.out.println(LoggingUtils.formatDebugMessage("[" + currentDir + "] Found DFs: " + foundDFs + "/" + hasDFs));
+                    }
+                } else if (file.getFileType() == SimCardFile.ADF) {
+                    // We found an ADF, so we will just add it to userDefinedReservedIDs
+                    System.out.println("ADF found: " + fileId);
+                    userDefinedReservedIDs.add(fileId);
+                } else {
+                    throw new CardException("File is not EF or DF. It is: " + file.getFileTypeName() + ". File path: " + filePath);
+                }
+
+                if (breakAfterCountsMatch && foundEFs == hasEFs && foundDFs == hasDFs) {
+                    System.out.println("[" + currentDir + "] Fuck this shit, already got all DFs and EFs, no point in scanning any further");
+                    break;
+                }
+
+                lastSelectSuccessful = true; // we have to select parent dir again for next iteration, if this was a directory not select parent directory again could create a mess
+
+            } catch (FileNotFoundException e) {
+                lastSelectSuccessful = false; // such file does NOT exist, jump to next one and set this to false so we don't have to select parent dir again (MUCH faster)
+            }
+        } // end for
+        System.out.println("[" + currentDir + "] STATUS: found DFs: " + foundDFs + "/" + hasDFs + ", found EFs: " + foundEFs + "/" + hasEFs);
+        System.out.println("Files found: " + resultsFIDs);
+        System.out.println();
+        dirScan.remove(currentDir);
+
+        // Call the recurse function for all the DFs found in the startinfDF
+        while (!dirScan.isEmpty()) {
+            results.putAll(scanSim(dirScan.remove(0), breakAfterCountsMatch, lazyScan, sameLevelFiles, resultsFIDs, scanAID));
+        } // end while
+
+        return results;
     }
 
     public static String getFIDforAID(String aid) throws CardException {
