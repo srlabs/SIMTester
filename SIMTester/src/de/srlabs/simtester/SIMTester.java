@@ -325,7 +325,7 @@ public class SIMTester {
         System.out.println();
 
         ArrayList<FuzzerData> fuzzers = new ArrayList<>();
-        List keysets = null;
+        List<Integer> keysets = null;
         switch (_fuzzingLevel) {
             case "FULL":
                 fuzzers.addAll(FuzzerFactory.getAllFuzzers());
@@ -363,17 +363,12 @@ public class SIMTester {
         }
 
         if (null != customKeysets) {
-            keysets = new ArrayList<>();
-            for (Integer oneKeyset : customKeysets) {
-                keysets.add(oneKeyset);
-            }
+            keysets = new ArrayList<>(customKeysets);
         }
 
         if (null != customTARs) {
             TARs = new ArrayList<>();
-            for (String oneTAR : customTARs) {
-                TARs.add(oneTAR);
-            }
+            TARs.addAll(customTARs);
         }
 
         System.out.println("TAR values to be fuzzed: " + TARs);
