@@ -62,6 +62,7 @@ public class FileManagement {
                     }
                     break;
                 case SimCardFile.EF:
+                case SimCardFile.INTERNAL_EF:
                     switch ((byte) selectResponse.getEFType()) { // fileStructure byte
                         case SimCardElementaryFile.EF_TRANSPARENT:
                             selectedFile = new SimCardTransparentFile(selectResponse);
@@ -81,12 +82,24 @@ public class FileManagement {
                                 System.out.println(LoggingUtils.formatDebugMessage("selected EF Cyclic " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
                             }
                             break;
+                        case SimCardElementaryFile.EF_NO_INFO:
+                            selectedFile = new SimCardNoInfoFile(selectResponse);
+                            if (DEBUG) {
+                                System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                            }
+                            break;
+                        case SimCardElementaryFile.EF_BER_TLV:
+                            selectedFile = new SimCardBerTlvFile(selectResponse);
+                            if (DEBUG) {
+                                System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                            }
+                            break;
                         default:
                             throw new CardException("Unknown EF type while selecting " + HexToolkit.toString(fileId));
                     }
                     break;
                 default:
-                    throw new CardException("Unknown file type while selecting " + HexToolkit.toString(fileId));
+                    throw new CardException("Unknown file type while selecting " + HexToolkit.toString(fileId) + "; File type value: " + selectResponse.getFileType());
 
             }
         }
