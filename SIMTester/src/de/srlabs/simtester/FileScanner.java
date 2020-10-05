@@ -79,7 +79,7 @@ public class FileScanner {
         SimCardFile current;
 
         if (scanAID) {
-            current = FileManagement.selectFileByPathPath(currentDir);
+            current = FileManagement.selectFileByPath(currentDir);
         } else {
             current = FileManagement.selectPath(currentDir);
         }
@@ -254,16 +254,5 @@ public class FileScanner {
 
 //        throw new CardException("The FID for AID " + aid + " was not found");
         return null;
-    }
-
-    public static String formatPath(String path) {
-        String result = new String();
-        for (int i = 0; i < path.length(); i += 4) {
-            result += path.substring(i, i + 4);
-            if (i != path.length() - 4) {
-                result += "/";
-            }
-        }
-        return result;
     }
 }
