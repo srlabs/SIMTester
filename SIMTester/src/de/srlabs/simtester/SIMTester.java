@@ -617,39 +617,19 @@ public class SIMTester {
             if (SIMLibrary.third_gen_apdu) { // auto-detect if card supports 3G APDUs
                 try {
                     ResponseAPDU response = FileManagement.selectFileById(new byte[]{(byte) 0x3F, (byte) 0x00});
-                    if ((short) response.getSW() != (short) 0x9000 && (byte) response.getSW1() != (byte) 0x91 && (byte) response.getSW1() != (byte) 0x61) { // 3G failed
+                    if ((short) response.getSW() != (short) 0x9000) { // 3G failed
                         System.err.println("\033[96m" + "3G APDU FAILED, " + String.format("%04X", response.getSW()) + " returned, this card does NOT support 3G, falling back to 2G and auto-retrying..\033[0m");
                         SIMLibrary.third_gen_apdu = false;
-
-                        try {
-                            if (null != CommonFileReader.getUSIMAID()) {
-                                System.out.println("\033[95m" + "WARNING! Card doesn't seem to accept 3G APDUs but EF_DIR AID is present, report this!" + "\033[0m");
-                            }
-                        } catch (CardException e) {
-                            if (DEBUG) { // only display something for DEBUG - otherwise let's ignore this (probably EF_DIR full of 0xFF)
-                                System.err.println(LoggingUtils.formatDebugMessage("EF_DIR has malformed content! Does not contain 0x4F tag"));
-                            }
-                        }
-                    } else {
-                        try {
-                            if (null == CommonFileReader.getUSIMAID()) {
-                                System.out.println("\033[95m" + "WARNING! Card's EF_DIR seems to be empty!" + "\033[0m");
-                            } else {
-                                System.out.println("\033[96m" + "Card seems to support 3G APDUs..\033[0m");
-                            }
-                        } catch (CardException e) {
-                            System.err.println("\033[96m" + "Unable to read USIM AID - file empty of malformed - falling back to 2G APDUs!" + "\033[0m");
-                            SIMLibrary.third_gen_apdu = false;
-                        }
                     }
                     if (DEBUG) {
                         System.out.println(LoggingUtils.formatDebugMessage("3G auto-detect returned: " + HexToolkit.toString(response.getBytes())));
                     }
                 } catch (CardException e) {
-                    System.err.println("3G support auto-detect failed, leaving 3G APDU mode on, expect messy behavior!");
                     e.printStackTrace(System.err);
+                    System.exit(1);
                 }
             }
+            ChannelHandler.getInstance().reset();
 
             if (cmdline.hasOption("dp")) {
                 System.out.println("Disabling PIN1/CHV1..");
