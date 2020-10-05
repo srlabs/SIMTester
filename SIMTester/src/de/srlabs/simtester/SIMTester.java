@@ -690,7 +690,11 @@ public class SIMTester {
                     lazyScan = true;
                 }
 
-                FileScanner.scanSim(breakAfterCount, lazyScan);
+                CSVWriter _writer = new CSVWriter(ICCID, "FILE", _logging);
+                _writer.writeBasicInfo(ATR, ICCID, IMSI, MSISDN, EF_MANUAREA, EF_DIR, AUTH, AppDeSelect);
+                FileScanner.scanSim(breakAfterCount, lazyScan, _writer);
+
+                _writer.unhideFile();
                 System.out.println("done scanning files, exiting..");
                 System.exit(0);
             }
