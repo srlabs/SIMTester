@@ -20,11 +20,11 @@ public class FileScanner {
 
     public static List<String> userDefinedReservedIDs = new ArrayList<>();
 
-    public static Map<String, SimCardFile> scanSim(String startingDF,
+    private static Map<String, SimCardFile> scanSimFromPath(String startingDF,
                                                    boolean breakAfterCountsMatch,
                                                    boolean lazyScan,
                                                    boolean scanAID) throws CardException, FileNotFoundException {
-        return scanSim(startingDF, breakAfterCountsMatch, lazyScan, new ArrayList<>(), new ArrayList<>(), scanAID);
+        return scanSimFromPath(startingDF, breakAfterCountsMatch, lazyScan, new ArrayList<>(), new ArrayList<>(), scanAID);
     }
 
     /**
@@ -38,7 +38,7 @@ public class FileScanner {
      * @throws CardException
      * @throws FileNotFoundException
      */
-    public static Map<String, SimCardFile> scanSim(String startingDF,
+    private static Map<String, SimCardFile> scanSimFromPath(String startingDF,
                                                    boolean breakAfterCountsMatch,
                                                    boolean lazyScan,
                                                    List<String> aboveLevelFiles,
@@ -197,7 +197,7 @@ public class FileScanner {
 
         // Call the recurse function for all the DFs found in the startinfDF
         while (!dirScan.isEmpty()) {
-            results.putAll(scanSim(dirScan.remove(0), breakAfterCountsMatch, lazyScan, sameLevelFiles, resultsFIDs, scanAID));
+            results.putAll(scanSimFromPath(dirScan.remove(0), breakAfterCountsMatch, lazyScan, sameLevelFiles, resultsFIDs, scanAID));
         } // end while
 
         return results;
@@ -254,5 +254,75 @@ public class FileScanner {
 
 //        throw new CardException("The FID for AID " + aid + " was not found");
         return null;
+    }
+
+    public static void scanSim(boolean breakAfterCountsMatch, boolean lazyScan, CSVWriter writer) throws CardException, FileNotFoundException {
+        Map<String, SimCardFile> scanFileResults;   // store the data returned by scanSimFromPath
+        List<SimCardFile> finalResults = new ArrayList<>();    // store the data processed by SimCardFileMapping
+        ArrayList<String> aids = new ArrayList<>();
+
+        // Write CSV header
+        writer.writeRawLine("# path,type,size,name,humanly_readable");
+
+        if (SIMLibrary.third_gen_apdu) {
+            // TODO: check if you really need to do a reset here or not
+            ChannelHandler.getInstance().reset();
+            // Get all the AIDs from the card
+            aids = CommonFileReader.getAIDs();
+            // Iterate AIDs and get FIDs
+            for (String aid : aids) {
+                String fid = getFIDforAID(aid);
+                // Add the FID of AID such us it will not be selected white brute-forcing
+                userDefinedReservedIDs.add(fid);
+            }
+            ChannelHandler.getInstance().reset();
+        }
+
+        // Search for 2G files
+        System.out.println("\033[96mReading files from MF\033[0m");
+        scanFileResults = scanSimFromPath("3F00", breakAfterCountsMatch, lazyScan, false);
+        // Process the data (add file name and description, order by path
+        finalResults.addAll(new MFSimCardFileMapping().getMappedNameAndDescription(scanFileResults));
+
+        if (SIMLibrary.third_gen_apdu) {
+            // Search for 3G files
+            for (String aid : aids) {
+                System.out.println("\033[96mSelecting the AID " + aid + "\033[0m");
+                String fid;
+                try {
+                    fid = HexToolkit.toString(FileManagement.selectAID(HexToolkit.fromString(aid)));
+                } catch (FileNotFoundException e) {
+                    e.printStackTrace();
+                    continue;
+                }
+                scanFileResults = scanSimFromPath("7FFF", breakAfterCountsMatch, lazyScan,true);
+
+                // Check the type of the AID (USIM, ISIM, etc)
+                // Based on the type, you should create the SimCardFileMapping class
+                // Defined in https://www.etsi.org/deliver/etsi_ts/101200_101299/101220/12.00.00_60/ts_101220v120000p.pdf (Table E.1)
+                if (aid.startsWith("A0000000871002")) {
+                    // USIM app
+                    finalResults.addAll(new USIMCardFileMapping().getMappedNameAndDescription(scanFileResults, aid, fid));
+                } else if (aid.startsWith("A0000000871004")) {
+                    // ISIM app
+                    finalResults.addAll(new ISIMCardFileMapping().getMappedNameAndDescription(scanFileResults, aid, fid));
+                } else {
+                    finalResults.addAll(new SimCardFileMapping().getMappedNameAndDescription(scanFileResults, aid, fid));
+                }
+            }
+        }
+
+        finalResults.forEach((file) -> {
+            System.out.printf("%-20s %4d %-15s %s\n", file.getFilePath(), file.getFileSize(), file.getFileName(), file.getFileDescription());
+            writer.writeRawLine(String.format(
+                    "%s,%s,%s,%s,%s",
+                    file.getFilePath(),
+                    file.getFileTypeName(),
+                    file.getFileSize(),
+                    file.getFileName(),
+                    file.getFileDescription()
+                    )
+            );
+        });
     }
 }
