@@ -238,19 +238,6 @@ public class SIMTester {
         EF_DIR = CommonFileReader.readDIR();
         System.out.println("ICCID: " + ICCID);
 
-        if (SIMLibrary.third_gen_apdu) {
-            String aid = CommonFileReader.getUSIMAID();
-            System.out.println("\033[96mRead USIM AID: " + aid + "\033[0m");
-            res = APDUToolkit.selectApplication(aid);
-            System.out.println("\033[96mTried to select USIM AID, result: " + HexToolkit.toString(res.getBytes()) + "\033[0m");
-
-            if ((short) res.getSW() != (short) 0x9000) {
-                SIMLibrary.third_gen_apdu = false;
-                System.out.println("\033[95m" + "WARNING! Unable to select USIM AID, falling back to 2G (reset in-progress)!" + "\033[0m");
-                ChannelHandler.getInstance().reset();
-            }
-        }
-
         byte[] rawIMSI = CommonFileReader.readRawIMSI();
         if (null != rawIMSI) {
             IMSI = CommonFileReader.swapIMSI(rawIMSI);
@@ -275,7 +262,15 @@ public class SIMTester {
         System.out.println("EF_MANUAREA: " + EF_MANUAREA);
         System.out.println("EF_DIR: " + EF_DIR);
 
+        ChannelHandler.getInstance().reset();
         if (SIMLibrary.third_gen_apdu) {
+            String usimAID = CommonFileReader.getUSIMAID();
+            if (usimAID == null) {
+                throw new CardException("There is no USIM available.");
+            }
+
+            FileManagement.selectAID(HexToolkit.fromString(usimAID));
+
             byte[] challenge = new byte[17];
             Arrays.fill(challenge, (byte) 0x00);
             challenge[0] = (byte) 16;
@@ -319,13 +314,6 @@ public class SIMTester {
             if (DEBUG) {
                 System.out.println(LoggingUtils.formatDebugMessage("Automatic Terminal profile initialization FAILED!"));
             }
-        }
-
-        if (SIMLibrary.third_gen_apdu) {
-            String aid = CommonFileReader.getUSIMAID();
-            System.out.println("\033[96mRead USIM AID: " + aid + "\033[0m");
-            res = APDUToolkit.selectApplication(aid);
-            System.out.println("\033[96mTried to select USIM AID, result: " + HexToolkit.toString(res.getBytes()) + "\033[0m");
         }
     }
 
