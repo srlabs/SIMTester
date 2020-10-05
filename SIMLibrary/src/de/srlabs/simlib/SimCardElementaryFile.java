@@ -12,7 +12,7 @@ public abstract class SimCardElementaryFile extends SimCardFile {
     public SimCardElementaryFile(SelectResponse selectResponse) {
         super(selectResponse);
 
-        if (getFileType() == (byte) EF) {
+        if (getFileType() == EF || getFileType() == INTERNAL_EF) {
             _fileStructure = selectResponse.getEFType();
         } else {
             throw new UnsupportedOperationException("Selected file is not an EF, unable to get EF structure");
