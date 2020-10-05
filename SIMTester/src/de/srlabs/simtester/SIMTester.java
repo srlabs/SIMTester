@@ -1,25 +1,17 @@
 package de.srlabs.simtester;
 
-import de.srlabs.simlib.APDUToolkit;
-import de.srlabs.simlib.Auth;
-import de.srlabs.simlib.AutoTerminalProfile;
-import de.srlabs.simlib.ChannelHandler;
-import de.srlabs.simlib.CommonFileReader;
-import de.srlabs.simlib.Debug;
-import de.srlabs.simlib.FileManagement;
-import de.srlabs.simlib.HexToolkit;
-import de.srlabs.simlib.LoggingUtils;
-import de.srlabs.simlib.SIMLibrary;
+import de.srlabs.simlib.*;
+
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CardTerminal;
-import javax.smartcardio.ResponseAPDU;
-import javax.smartcardio.TerminalFactory;
+import javax.smartcardio.*;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
@@ -66,6 +58,8 @@ public class SIMTester {
         System.out.println("########################################");
         System.out.println();
 
+        Instant startPeriod = Instant.now();
+
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
             public void run() {
@@ -77,7 +71,7 @@ public class SIMTester {
                     _fuzzer.interrupt();
                     try {
                         _fuzzer.join(); // wait for all actions in thread to finish
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException ignored) {
                     }
                 }
 
@@ -86,13 +80,13 @@ public class SIMTester {
                     try {
                         _tarscanner.join(); // wait for all actions in thread to finish
                         _tarscanner.scanExit();
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException ignored) {
                     }
                 }
 
                 try {
                     ChannelHandler.disconnectCard(); // FIXME: this get hung up if layer1 connection does not answer anymore and you have to kill -9 <java>
-                } catch (CardException e) {
+                } catch (CardException ignored) {
                 }
 
                 if (null != _fuzzer) {
@@ -110,6 +104,8 @@ public class SIMTester {
                         }
                     }
                 }
+
+                System.out.println("Execution time (minutes): " + Duration.between(startPeriod, Instant.now()).toMinutes());
             }
         });
 
@@ -719,6 +715,7 @@ public class SIMTester {
             }
 
             if (cmdline.hasOption("sf")) {
+                readBasicInfo();
                 boolean breakAfterCount = false;
                 boolean lazyScan = false;
 
