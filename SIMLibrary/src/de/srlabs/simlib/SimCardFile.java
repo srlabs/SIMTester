@@ -118,6 +118,8 @@ public abstract class SimCardFile {
         aMap.put("3f00/2f06", new String[]{"MF/arr", "Access Rule Reference"});
         aMap.put("3f00/2f53", new String[]{"Axalto (U)Simera", "file that is used by the STK framework in case of an SMS PP Unformatted UPD"}); //FIXME: this is crap from some forum
         aMap.put("3f00/2fe2", new String[]{"ICCID", "ICC Identification"});
+        aMap.put("3f00/2fe5", new String[]{"PIN", "Keys for CHV1, CHV2, PUK1, PUK2, and ADMx for GSM"});
+        aMap.put("3f00/2fe6", new String[]{"Key", "Ki for GSM authentication and OTA’s Authentication Keys Kid"});
         aMap.put("3f00/5f11", new String[]{"Gemplus GemXpresso", "file that is used by the STK framework in case of an SMS PP Unformatted UPD"}); //FIXME: this is crap from some forum
         aMap.put("3f00/7f10", new String[]{"DFtelecom", "Telecom Directory"});
         aMap.put("3f00/7f10/6f06", new String[]{"DFtelecom/arr", "Access Rule Reference"});
@@ -156,6 +158,22 @@ public abstract class SimCardFile {
         aMap.put("3f00/7f10/5f3a/4f50", new String[]{"PBemail", "PBook email address"});
         aMap.put("3f00/7f10/5f50/4f20", new String[]{"IMG", "Image"});
         aMap.put("3f00/7f20", new String[]{"DFgsm", "GSM Directory"});
+
+        aMap.put("3f00/7f20/5f30", new String[]{"DFiridium", ""});
+        aMap.put("3f00/7f20/5f31", new String[]{"DFglobst", ""});
+        aMap.put("3f00/7f20/5f32", new String[]{"DFico", ""});
+        aMap.put("3f00/7f20/5f33", new String[]{"DFaces", ""});
+        aMap.put("3f00/7f20/5f3C", new String[]{"DFmexe", "Mobile Execution Environment Directory"});
+        aMap.put("3f00/7f20/5f3C/4F40", new String[]{"MExE-ST", "Mobile Execution Environment Service Table"});
+        aMap.put("3f00/7f20/5f3C/4F41", new String[]{"ORPK", "Operator root public key"});
+        aMap.put("3f00/7f20/5f3C/4F42", new String[]{"ARPK", "Administrator root public key"});
+        aMap.put("3f00/7f20/5f3C/4F43", new String[]{"TPRPK", "Third Party root public key"});
+        aMap.put("3f00/7f20/5f40", new String[]{"DFeia/tia-553", "EIT/TIA-553 Analog Cellular Directory"});
+        aMap.put("3f00/7f20/5f60", new String[]{"DFcts", "Cordless Telephony System Directory"});
+        aMap.put("3f00/7f20/5f70", new String[]{"DFsolsa", "Support of Localised Service Area Directory"});
+        aMap.put("3f00/7f20/5f70/4f30", new String[]{"SAI", "SoLSA Access Indicator"});
+        aMap.put("3f00/7f20/5f70/4f31", new String[]{"SLL", "SoLSA LSA List"});
+
         aMap.put("3f00/7f20/6f05", new String[]{"LP", "Language Preference"});
         aMap.put("3f00/7f20/6f07", new String[]{"IMSI", "IMSI"});
         aMap.put("3f00/7f20/6f09", new String[]{"KeyPS", "Keys for Packet domain"});
@@ -265,16 +283,16 @@ public abstract class SimCardFile {
         aMap.put("3f00/7f21/6f45", new String[]{"CBMI", "Bcast msg id"});
         aMap.put("3f00/7f21/6f46", new String[]{"SPN", "Network Name"});
         aMap.put("3f00/7f21/6f48", new String[]{"CMMID", "Cell BCast for Data"});
-        aMap.put("3f00/7f21/6f50", new String[]{"CBMIR", "Cell BCast msg ID"});
-        aMap.put("3f00/7f21/6f51", new String[]{"NIA", "Network Ind Alerting"});
-        aMap.put("3f00/7f21/6f52", new String[]{"KcGPRS", "GPRS Ciphering Key"});
-        aMap.put("3f00/7f21/6f53", new String[]{"LOCIGPRS", "GPRS location info"});
+        aMap.put("3f00/7f21/6f50", new String[]{"CBMIR", "Cell BCast msg ID"});     // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f51", new String[]{"NIA", "Network Ind Alerting"});    // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f52", new String[]{"KcGPRS", "GPRS Ciphering Key"});   // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f53", new String[]{"LOCIGPRS", "GPRS location info"}); // The standard places this one under 7f20
         aMap.put("3f00/7f21/6f54", new String[]{"SUME", "SetUpMenu Elements"});
-        aMap.put("3f00/7f21/6f60", new String[]{"PLMNwAcT", "User PLMN Selector"});
-        aMap.put("3f00/7f21/6f61", new String[]{"OPLMNwAcT", "OPerator PLMN Select"});
-        aMap.put("3f00/7f21/6f62", new String[]{"HPLMNwAcT", "HPLMN Selector"});
-        aMap.put("3f00/7f21/6f63", new String[]{"CPBCCH", "CPBCCH Information"});
-        aMap.put("3f00/7f21/6f64", new String[]{"InvScan", "Investingation Scan"});
+        aMap.put("3f00/7f21/6f60", new String[]{"PLMNwAcT", "User PLMN Selector"}); // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f61", new String[]{"OPLMNwAcT", "OPerator PLMN Select"});  // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f62", new String[]{"HPLMNwAcT", "HPLMN Selector"});    // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f63", new String[]{"CPBCCH", "CPBCCH Information"});   // The standard places this one under 7f20
+        aMap.put("3f00/7f21/6f64", new String[]{"InvScan", "Investingation Scan"}); // The standard places this one under 7f20
         aMap.put("3f00/7f21/6f74", new String[]{"BCCH", "Bcast control chans"});
         aMap.put("3f00/7f21/6f78", new String[]{"ACC", "Access control class"});
         aMap.put("3f00/7f21/6f7b", new String[]{"FPLMN", "Forbidden PLMNs"});
@@ -339,6 +357,11 @@ public abstract class SimCardFile {
         aMap.put("3f00/7f21/6fd9", new String[]{"USIMehplmn", "Evuiv HPLMN"});
         aMap.put("3f00/7f21/6fda", new String[]{"USIMgbanl", "GBA NAF List"});
         aMap.put("3f00/7f21/5f3b", new String[]{"DFmultimedia", "Multi media Directory"});
+
+        // The following file systems are present here: https://www.etsi.org/deliver/etsi_ts/100900_100999/100977/08.14.00_60/ts_100977v081400p.pdf
+        aMap.put("3f00/7f22", new String[]{"IS-41", "IS-41 standard"});
+        aMap.put("3f00/7f23", new String[]{"FP-CTS", "Fixed Part Cordless Telephony System"});
+
         aMap.put("3f00/7f45", new String[]{"S@T", "SIMalliance Toolbox"});
         aMap.put("3f00/7f55", new String[]{"N@vigate", ""});
         aMap.put("3f00/7ff0", new String[]{"3G shadow dir", "used to link 3G files to 2G context, kind of wrong"});
