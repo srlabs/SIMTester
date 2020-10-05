@@ -107,6 +107,27 @@ public class FileManagement {
         return selectedFile;
     }
 
+    public static byte[] selectAID(byte[] aid) throws CardException, FileNotFoundException {
+        if (DEBUG) {
+            System.out.println(LoggingUtils.formatDebugMessage("selecting AID: " + HexToolkit.toString(aid)));
+        }
+
+        CommandAPDU select = new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x04, aid);
+        ResponseAPDU r = ChannelHandler.transmitOnDefaultChannel(select);
+
+        if ((short) r.getSW() != (short) 0x9000) {
+            System.out.println("Application cannot be selected");
+            throw new FileNotFoundException("AID: " + HexToolkit.toString(aid) + "; doesn't seem to exist on this card; SW = " + Integer.toHexString(r.getSW()));
+        }
+
+        byte[] fid_data = TLVToolkit.getTLV(r.getData(), (byte) 0x83, (byte) 0x82);
+        if (fid_data == null) {
+            return null;
+        }
+
+        return new byte[]{fid_data[2], fid_data[3]};
+    }
+
     public static ResponseAPDU selectFileById(byte[] fileId) throws CardException {
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("selecting file: " + HexToolkit.toString(fileId)));
