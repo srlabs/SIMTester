@@ -235,8 +235,19 @@ public class SIMTester {
 
         ICCID = CommonFileReader.readICCID();
         EF_MANUAREA = CommonFileReader.readMANUAREA();
-        EF_DIR = CommonFileReader.readDIR();
         System.out.println("ICCID: " + ICCID);
+
+        // Set EF_DIR
+        ArrayList<byte[]> dirRecords = CommonFileReader.readDIR();
+        if (dirRecords.size() > 0) {
+            EF_DIR = HexToolkit.toString(dirRecords.get(0));
+
+            // Print EF_DIR content
+            System.out.format("The EF_DIR has %d record(s)\n", dirRecords.size());
+            for (int i = 0; i < dirRecords.size(); i++) {
+                System.out.format("Record %d: %s\n", i, HexToolkit.toString(dirRecords.get(i)));
+            }
+        }
 
         byte[] rawIMSI = CommonFileReader.readRawIMSI();
         if (null != rawIMSI) {
@@ -262,7 +273,6 @@ public class SIMTester {
         System.out.println("EF_MANUAREA: " + EF_MANUAREA);
         System.out.println("EF_DIR: " + EF_DIR);
 
-        ChannelHandler.getInstance().reset();
         if (SIMLibrary.third_gen_apdu) {
             String usimAID = CommonFileReader.getUSIMAID();
             if (usimAID == null) {
@@ -279,9 +289,14 @@ public class SIMTester {
             if ((byte) res.getSW1() == (byte) 0x61) {
                 res = APDUToolkit.getResponse(res.getSW2());
                 AUTH = "3G_" + HexToolkit.toString(res.getData());
-            } else {
+            } else if ((short) res.getSW() == (short) 0x9000) {
                 AUTH = "3G_" + HexToolkit.toString(res.getBytes());
+            } else {
+                System.err.println("\033[96m" + "3G AUTH FAILED, " + String.format("%04X", res.getSW()) + " returned. Please investigate, fix and try again...\033[0m");
+                System.exit(1);
             }
+
+            ChannelHandler.getInstance().reset();
         } else {
             byte[] rand = new byte[16];
             Arrays.fill(rand, (byte) 0x00);
@@ -290,7 +305,8 @@ public class SIMTester {
                 res = APDUToolkit.getResponse(res.getSW2());
                 AUTH = "2G_" + HexToolkit.toString(res.getData());
             } else {
-                AUTH = "2G_" + HexToolkit.toString(res.getBytes());
+                System.err.println("\033[96m" + "2G AUTH FAILED, " + String.format("%04X", res.getSW()) + " returned. Please investigate, fix and try again...\033[0m");
+                System.exit(1);
             }
         }
 
@@ -618,8 +634,15 @@ public class SIMTester {
                 try {
                     ResponseAPDU response = FileManagement.selectFileById(new byte[]{(byte) 0x3F, (byte) 0x00});
                     if ((short) response.getSW() != (short) 0x9000) { // 3G failed
-                        System.err.println("\033[96m" + "3G APDU FAILED, " + String.format("%04X", response.getSW()) + " returned, this card does NOT support 3G, falling back to 2G and auto-retrying..\033[0m");
-                        SIMLibrary.third_gen_apdu = false;
+                        if ((short) response.getSW() == (short) 0x6E00) {
+                            // Class not supported
+                            System.err.println("\033[96m" + "3G APDU FAILED, this card does NOT support 3G, falling back to 2G and auto-retrying..\033[0m");
+                            SIMLibrary.third_gen_apdu = false;
+                        } else {
+                            // Other error, so not a good sign, you have to investigate...
+                            System.err.println("\033[96m" + "3G APDU FAILED, " + String.format("%04X", response.getSW()) + " returned. Please investigate, fix and try again...\033[0m");
+                            System.exit(1);
+                        }
                     }
                     if (DEBUG) {
                         System.out.println(LoggingUtils.formatDebugMessage("3G auto-detect returned: " + HexToolkit.toString(response.getBytes())));
