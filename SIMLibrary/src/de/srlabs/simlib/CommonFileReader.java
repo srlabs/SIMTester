@@ -398,8 +398,8 @@ public class CommonFileReader {
         }
     }
 
-    // TODO: should we remove this function? it returns just the first record of EFDIR... better use getAIDs?
-    public static String readDIR() throws CardException {
+    public static ArrayList<byte[]> readDIR() throws CardException {
+        ArrayList<byte[]> records = new ArrayList<>();
 
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("reading EF_DIR file"));
@@ -408,75 +408,34 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            if (SIMLibrary.third_gen_apdu) {
-                file = FileManagement.selectPath("2f00");
-            } else {
-                file = FileManagement.selectPath("3f002f00");
-            }
+            file = FileManagement.selectPath("3f002f00");
         } catch (FileNotFoundException e) {
-            file = null;
+            return records;
         }
 
-        if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
-            if (file instanceof SimCardLinearFixedFile) {
-                int numRecords = ((SimCardLinearFixedFile) file).getNumberOfRecords();
-                int recordLength = ((SimCardLinearFixedFile) file).getRecordLength();
-                for (int i = 1; i <= numRecords; i++) {
-                    byte[] content = ((SimCardLinearFixedFile) file).getRecord(i);
-                    System.out.println("Record " + i + ": " + HexToolkit.toString(content));
-                }
-                byte[] recordContent = ((SimCardLinearFixedFile) file).getFirstRecord();
+        if (file instanceof SimCardLinearFixedFile) {
+            int noOfRecords = ((SimCardLinearFixedFile) file).getNumberOfRecords();
+            for(int i = 1; i <= noOfRecords; i++) {
+                byte[] recordContent = ((SimCardLinearFixedFile) file).getRecord(i);
+
                 if (null != recordContent) {
-                    return HexToolkit.toString(recordContent);
-                } else {
-                    return null;
+                    records.add(recordContent);
                 }
-            } else {
-                return null;
             }
-        } else {
-            return null;
         }
+
+        return records;
     }
 
     public static ArrayList<String> getAIDs() throws CardException {
         ArrayList<String> aids = new ArrayList<>();
+        ArrayList<byte[]> dirRecords = readDIR();
 
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("reading EF_DIR file"));
-        }
-
-        SimCardFile file;
-
-        try {
-            if (SIMLibrary.third_gen_apdu) {
-                file = FileManagement.selectPath("2f00");
-            } else {
-                file = FileManagement.selectPath("3f002f00");
-            }
-        } catch (FileNotFoundException e) {
-            if (DEBUG) {
-                System.out.println(LoggingUtils.formatDebugMessage("FileNotFoundException: " + e.getMessage()));
-            }
-            return aids;
-        }
-
-        if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
-            if (file instanceof SimCardLinearFixedFile) {
-                int noOfRecords = ((SimCardLinearFixedFile) file).getNumberOfRecords();
-                System.out.format("The EF_DIR has %d record(s)\n", noOfRecords);
-                for(int i = 1; i <= noOfRecords; i++) {
-                    byte[] recordContent = ((SimCardLinearFixedFile) file).getRecord(i);
-                    System.out.format("Record %d: %s\n", i, HexToolkit.toString(recordContent).toUpperCase());
-
-                    if (null != recordContent) {
-                        byte[] aid_data = TLVToolkit.getTLV(recordContent, (byte) 0x4F);
-                        if (null != aid_data) {
-                            byte[] aid = Arrays.copyOfRange(aid_data, 2, 2 + aid_data[1]);
-                            aids.add(HexToolkit.toString(aid));
-                        }
-                    }
-                }
+        for (byte[] recordContent: dirRecords) {
+            byte[] aid_data = TLVToolkit.getTLV(recordContent, (byte) 0x4F);
+            if (null != aid_data) {
+                byte[] aid = Arrays.copyOfRange(aid_data, 2, 2 + aid_data[1]);
+                aids.add(HexToolkit.toString(aid));
             }
         }
 
