@@ -234,11 +234,9 @@ public class FileScanner {
             }
 
             try {
-                SimCardFile file = FileManagement.selectFileByPath(fileId);
+                SimCardFile file = FileManagement.selectPath(fileId);
 
                 if (file.getFileType() == SimCardFile.ADF) {
-                    // We found an ADF, so we will just add it to userDefinedReservedIDs
-                    System.out.println("ADF found: " + fileId);
                     return fileId;
                 }
             } catch (FileNotFoundException ignored) {
@@ -265,13 +263,19 @@ public class FileScanner {
             // Iterate AIDs and get FIDs
             for (String aid : aids) {
                 String fid = getFIDforAID(aid);
-                // Add the FID of AID such us it will not be selected white brute-forcing
+                if (fid == null) {
+                    System.out.println("\033[96mNo FID found. Maybe you want to manually check it\033[0m");
+                } else {
+                    System.out.println("FID found: " + fid);
+                }
+                // Add the FID of AID such us it will not be selected while brute-forcing
                 userDefinedReservedIDs.add(fid);
             }
             ChannelHandler.getInstance().reset();
         }
 
         // Search for 2G files
+        System.out.println("");
         System.out.println("\033[96mReading files from MF\033[0m");
         scanFileResults = scanSimFromPath("3F00", breakAfterCountsMatch, lazyScan, false);
         // Process the data (add file name and description, order by path

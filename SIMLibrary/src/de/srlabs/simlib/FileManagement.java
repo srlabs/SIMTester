@@ -10,6 +10,67 @@ public class FileManagement {
     private final static boolean LOCAL_DEBUG = false;
     private final static boolean DEBUG = Debug.DEBUG || LOCAL_DEBUG;
 
+    private static SimCardFile getSimCardFileType(String filePathId, SelectResponse selectResponse) throws CardException {
+        SimCardFile selectedFile = null;
+
+        switch (selectResponse.getFileType()) { // fileType byte
+            case SimCardFile.MF:
+                selectedFile = new SimCardMasterFile(selectResponse);
+                if (DEBUG) {
+                    System.out.println(LoggingUtils.formatDebugMessage("selected MF " + selectResponse.getFileId() + ", child DFs: " + selectedFile.getNumberOfChildDFs() + ", child EFs: " + selectedFile.getNumberOfChildEFs()));
+                }
+                break;
+            case SimCardFile.DF:
+            case SimCardFile.ADF:
+                selectedFile = new SimCardDirectoryFile(selectResponse);
+                if (DEBUG) {
+                    System.out.println(LoggingUtils.formatDebugMessage("selected DF " + selectResponse.getFileId() + ", child DFs: " + selectedFile.getNumberOfChildDFs() + ", child EFs: " + selectedFile.getNumberOfChildEFs()));
+                }
+                break;
+            case SimCardFile.EF:
+            case SimCardFile.INTERNAL_EF:
+                switch ((byte) selectResponse.getEFType()) { // fileStructure byte
+                    case SimCardElementaryFile.EF_TRANSPARENT:
+                        selectedFile = new SimCardTransparentFile(selectResponse);
+                        if (DEBUG) {
+                            System.out.println(LoggingUtils.formatDebugMessage("selected EF Transparent " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                        }
+                        break;
+                    case SimCardElementaryFile.EF_LINEAR_FIXED:
+                        selectedFile = new SimCardLinearFixedFile(selectResponse);
+                        if (DEBUG) {
+                            System.out.println(LoggingUtils.formatDebugMessage("selected EF Linear-Fixed " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                        }
+                        break;
+                    case SimCardElementaryFile.EF_CYCLIC:
+                        selectedFile = new SimCardCyclicFile(selectResponse);
+                        if (DEBUG) {
+                            System.out.println(LoggingUtils.formatDebugMessage("selected EF Cyclic " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                        }
+                        break;
+                    case SimCardElementaryFile.EF_NO_INFO:
+                        selectedFile = new SimCardNoInfoFile(selectResponse);
+                        if (DEBUG) {
+                            System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                        }
+                        break;
+                    case SimCardElementaryFile.EF_BER_TLV:
+                        selectedFile = new SimCardBerTlvFile(selectResponse);
+                        if (DEBUG) {
+                            System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
+                        }
+                        break;
+                    default:
+                        throw new CardException("Unknown EF type while selecting " + filePathId);
+                }
+                break;
+            default:
+                throw new CardException("Unknown file type while selecting " + filePathId + "; File type value: " + selectResponse.getFileType());
+        }
+
+        return selectedFile;
+    }
+
     public static SimCardFile selectPath(String filePath) throws CardException, FileNotFoundException {
 
         if (filePath.length() % 4 != 0) {
@@ -48,60 +109,7 @@ public class FileManagement {
                 }
             }
 
-            switch (selectResponse.getFileType()) { // fileType byte
-                case SimCardFile.MF:
-                    selectedFile = new SimCardMasterFile(selectResponse);
-                    if (DEBUG) {
-                        System.out.println(LoggingUtils.formatDebugMessage("selected MF " + selectResponse.getFileId() + ", child DFs: " + selectedFile.getNumberOfChildDFs() + ", child EFs: " + selectedFile.getNumberOfChildEFs()));
-                    }
-                    break;
-                case SimCardFile.DF:
-                    selectedFile = new SimCardDirectoryFile(selectResponse);
-                    if (DEBUG) {
-                        System.out.println(LoggingUtils.formatDebugMessage("selected DF " + selectResponse.getFileId() + ", child DFs: " + selectedFile.getNumberOfChildDFs() + ", child EFs: " + selectedFile.getNumberOfChildEFs()));
-                    }
-                    break;
-                case SimCardFile.EF:
-                case SimCardFile.INTERNAL_EF:
-                    switch ((byte) selectResponse.getEFType()) { // fileStructure byte
-                        case SimCardElementaryFile.EF_TRANSPARENT:
-                            selectedFile = new SimCardTransparentFile(selectResponse);
-                            if (DEBUG) {
-                                System.out.println(LoggingUtils.formatDebugMessage("selected EF Transparent " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                            }
-                            break;
-                        case SimCardElementaryFile.EF_LINEAR_FIXED:
-                            selectedFile = new SimCardLinearFixedFile(selectResponse);
-                            if (DEBUG) {
-                                System.out.println(LoggingUtils.formatDebugMessage("selected EF Linear-Fixed " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                            }
-                            break;
-                        case SimCardElementaryFile.EF_CYCLIC:
-                            selectedFile = new SimCardCyclicFile(selectResponse);
-                            if (DEBUG) {
-                                System.out.println(LoggingUtils.formatDebugMessage("selected EF Cyclic " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                            }
-                            break;
-                        case SimCardElementaryFile.EF_NO_INFO:
-                            selectedFile = new SimCardNoInfoFile(selectResponse);
-                            if (DEBUG) {
-                                System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                            }
-                            break;
-                        case SimCardElementaryFile.EF_BER_TLV:
-                            selectedFile = new SimCardBerTlvFile(selectResponse);
-                            if (DEBUG) {
-                                System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                            }
-                            break;
-                        default:
-                            throw new CardException("Unknown EF type while selecting " + HexToolkit.toString(fileId));
-                    }
-                    break;
-                default:
-                    throw new CardException("Unknown file type while selecting " + HexToolkit.toString(fileId) + "; File type value: " + selectResponse.getFileType());
-
-            }
+            selectedFile = getSimCardFileType(HexToolkit.toString(fileId), selectResponse);
         }
 
         return selectedFile;
@@ -156,56 +164,7 @@ public class FileManagement {
             throw new CardException("an unexpected error has occurred during selection of file ID: " + filePath + "; SW = " + Integer.toHexString(r.getSW()) + "; APDU = " + HexToolkit.toString(select.getBytes()));
         }
 
-        switch (selectResponse.getFileType()) { // fileType byte
-            case SimCardFile.MF:
-                selectedFile = new SimCardMasterFile(selectResponse);
-                if (DEBUG) {
-                    System.out.println(LoggingUtils.formatDebugMessage("selected MF " + selectResponse.getFileId() + ", child DFs: " + selectedFile.getNumberOfChildDFs() + ", child EFs: " + selectedFile.getNumberOfChildEFs()));
-                }
-                break;
-            case SimCardFile.DF:
-            case SimCardFile.ADF:
-                selectedFile = new SimCardDirectoryFile(selectResponse);
-                if (DEBUG) {
-                    System.out.println(LoggingUtils.formatDebugMessage("selected DF " + selectResponse.getFileId() + ", child DFs: " + selectedFile.getNumberOfChildDFs() + ", child EFs: " + selectedFile.getNumberOfChildEFs()));
-                }
-                break;
-
-            case SimCardFile.EF:
-            case SimCardFile.INTERNAL_EF:
-                switch (selectResponse.getEFType()) { // fileStructure byte
-                    case SimCardElementaryFile.EF_TRANSPARENT:
-                        selectedFile = new SimCardTransparentFile(selectResponse);
-                        if (DEBUG) {
-                            System.out.println(LoggingUtils.formatDebugMessage("selected EF Transparent " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                        }
-                        break;
-                    case SimCardElementaryFile.EF_LINEAR_FIXED:
-                        selectedFile = new SimCardLinearFixedFile(selectResponse);
-                        if (DEBUG) {
-                            System.out.println(LoggingUtils.formatDebugMessage("selected EF Linear-Fixed " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                        }
-                        break;
-                    case SimCardElementaryFile.EF_CYCLIC:
-                        selectedFile = new SimCardCyclicFile(selectResponse);
-                        if (DEBUG) {
-                            System.out.println(LoggingUtils.formatDebugMessage("selected EF Cyclic " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                        }
-                        break;
-                    case SimCardElementaryFile.EF_NO_INFO:
-                        selectedFile = new SimCardNoInfoFile(selectResponse);
-                        if (DEBUG) {
-                            System.out.println(LoggingUtils.formatDebugMessage("selected EF NoInfo " + selectResponse.getFileId() + ", size: " + selectedFile.getFileSize()));
-                        }
-                        break;
-                    default:
-                        throw new CardException("Unknown EF type while selecting " + filePath);
-                }
-                break;
-            default:
-                throw new CardException("Unknown file type while selecting " + filePath);
-
-        }
+        selectedFile = getSimCardFileType(filePath, selectResponse);
 
         return selectedFile;
     }
