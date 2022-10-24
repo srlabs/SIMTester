@@ -295,10 +295,25 @@ public class CommonFileReader {
 
         SimCardFile file;
 
+        // The file can be located under 3f007f206f07 or USIM/6f07
         try {
             file = FileManagement.selectPath("3f007f206f07");
         } catch (FileNotFoundException e) {
             file = null;
+        }
+
+        // Look for the file under USIM/6f07
+        if (file == null && SIMLibrary.third_gen_apdu) {
+            try {
+                String usimAID = CommonFileReader.getUSIMAID();
+                if (usimAID == null) {
+                    throw new CardException("There is no USIM available.");
+                }
+
+                FileManagement.selectAID(HexToolkit.fromString(usimAID));
+                file = FileManagement.selectPath("6f07");
+            } catch (FileNotFoundException ignored) {
+            }
         }
 
         if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
