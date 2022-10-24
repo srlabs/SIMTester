@@ -285,9 +285,8 @@ public class FileScanner {
             // Search for 3G files
             for (String aid : aids) {
                 System.out.println("\033[96mSelecting the AID " + aid + "\033[0m");
-                String fid;
                 try {
-                    fid = HexToolkit.toString(FileManagement.selectAID(HexToolkit.fromString(aid)));
+                    HexToolkit.toString(FileManagement.selectAID(HexToolkit.fromString(aid)));
                 } catch (FileNotFoundException e) {
                     e.printStackTrace();
                     continue;
@@ -299,12 +298,12 @@ public class FileScanner {
                 // Defined in https://www.etsi.org/deliver/etsi_ts/101200_101299/101220/12.00.00_60/ts_101220v120000p.pdf (Table E.1)
                 if (aid.startsWith("A0000000871002")) {
                     // USIM app
-                    finalResults.addAll(new USIMCardFileMapping().getMappedNameAndDescription(scanFileResults, aid, fid));
+                    finalResults.addAll(new USIMCardFileMapping().getMappedNameAndDescription(scanFileResults, aid));
                 } else if (aid.startsWith("A0000000871004")) {
                     // ISIM app
-                    finalResults.addAll(new ISIMCardFileMapping().getMappedNameAndDescription(scanFileResults, aid, fid));
+                    finalResults.addAll(new ISIMCardFileMapping().getMappedNameAndDescription(scanFileResults, aid));
                 } else {
-                    finalResults.addAll(new SimCardFileMapping().getMappedNameAndDescription(scanFileResults, aid, fid));
+                    finalResults.addAll(new SimCardFileMapping().getMappedNameAndDescription(scanFileResults, aid));
                 }
             }
         }

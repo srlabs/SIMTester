@@ -52,17 +52,12 @@ public class SimCardFileMapping {
         return results;
     }
 
-    public List<SimCardFile> getMappedNameAndDescription(Map<String, SimCardFile> inputFilePaths, String aid, String fid) {
+    public List<SimCardFile> getMappedNameAndDescription(Map<String, SimCardFile> inputFilePaths, String aid) {
         List<SimCardFile> mappedFiles = getMappedNameAndDescription(inputFilePaths);
 
         for (SimCardFile file: mappedFiles) {
-            if (fid != null) {
-                // We will return the files as 3F00/FID/file...
-                file.setFilePath(file.getFilePath().replace("7FFF", "3F00/" + fid));
-            } else {
-                // We will return the files as AID/file...
-                file.setFilePath(file.getFilePath().replace("7FFF", aid));
-            }
+            // We will return the files as AID/file...
+            file.setFilePath(file.getFilePath().replace("7FFF", aid));
         }
 
         return mappedFiles;
