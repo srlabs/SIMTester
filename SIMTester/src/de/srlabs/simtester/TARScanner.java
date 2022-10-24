@@ -157,7 +157,9 @@ public class TARScanner extends Thread {
 
         long startTime = System.currentTimeMillis();
 
-        for (int i = 0; i <= loopUntil && !Thread.currentThread().isInterrupted(); i++) {
+        int i = 0;
+        boolean hasCardException = false;   // Allow just one single CardException
+        while (i <= loopUntil && !Thread.currentThread().isInterrupted()) {
             int int_TAR = i + startingTAR_int;
             byte[] currentTAR = new byte[]{(byte) (int_TAR >>> 16), (byte) (int_TAR >>> 8), (byte) (int_TAR)};
             if ((i == loopUntil) || (i % 100) == 0) {
@@ -172,10 +174,26 @@ public class TARScanner extends Thread {
 
             CommandPacket cp = new CommandPacket();
             ResponseAPDU response = testTAR(currentTAR, cp);
-            analyseResponse(currentTAR, cp, response);
+//            analyseResponse(currentTAR, cp, response);
+
+            try {
+                analyseResponse(currentTAR, cp, response);
+                hasCardException = false;
+            } catch (CardException e) {
+                if (!hasCardException) {
+                    System.err.println(e.getMessage());
+                    hasCardException = true;
+                } else {
+                    throw e;
+                }
+
+            }
 
             _status_last_TAR_scanned = HexToolkit.toString(currentTAR);
             _status_remaining_TARs = (loopUntil - i - 1); // -1 as the TAR was already processed
+
+            i++;
+//            break;
         }
     }
 
@@ -273,6 +291,8 @@ public class TARScanner extends Thread {
                 System.err.println("Parse exception while parsing response packet, skipping it! details:");
                 e.printStackTrace(System.err);
                 return;
+            } catch (ArrayIndexOutOfBoundsException e) {
+                throw new CardException(e.getMessage());
             }
 
             byte status_code = rp.getStatusCode();
