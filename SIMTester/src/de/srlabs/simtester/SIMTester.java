@@ -10,6 +10,7 @@ import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.stream.Collectors;
 import javax.smartcardio.*;
 
 import org.apache.commons.cli.CommandLine;
@@ -41,7 +42,7 @@ public class SIMTester {
     public static String EF_DIR = null;
     public static String AUTH = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v1.9, 2019-09-26";
+    private static final String version = "SIMTester v2.0.0, 2022-10-21";
     private static Fuzzer _fuzzer = null;
     private static TARScanner _tarscanner = null;
     private static CSVWriter _writer = null;
@@ -51,9 +52,10 @@ public class SIMTester {
         System.out.println();
         System.out.println("########################################");
         System.out.println("  " + version);
-        System.out.println("  Lukas Kuzmiak (lukas@srlabs.de)       ");
-        System.out.println("  Luca Melette  (luca@srlabs.de)        ");
-        System.out.println("  Jonas Schmid  (jonas@srlabs.de)       ");
+        System.out.println("  Lukas Kuzmiak    (lukas@srlabs.de)    ");
+        System.out.println("  Luca Melette     (luca@srlabs.de)     ");
+        System.out.println("  Jonas Schmid     (jonas@srlabs.de)    ");
+        System.out.println("  Gabriel Arnautu  (gabriel@srlabs.de)  ");
         System.out.println("  Security Research Labs, Berlin, " + Calendar.getInstance().get(Calendar.YEAR));
         System.out.println("########################################");
         System.out.println();
