@@ -240,7 +240,7 @@ public class SIMTester {
         // Set EF_DIR
         ArrayList<byte[]> dirRecords = CommonFileReader.readDIR();
         if (dirRecords.size() > 0) {
-            EF_DIR = HexToolkit.toString(dirRecords.get(0));
+            EF_DIR = dirRecords.stream().map(HexToolkit::toString).collect(Collectors.joining(";"));
 
             // Print EF_DIR content
             System.out.format("The EF_DIR has %d record(s)\n", dirRecords.size());
@@ -527,7 +527,7 @@ public class SIMTester {
                 terminal.connect("T=0");
                 ChannelHandler.getInstance(i, null);
                 System.out.println("IDX: " + i + ", ICCID = " + CommonFileReader.readICCID());
-            } catch (CardException e) {
+            } catch (CardException ignored) {
             } finally {
                 i++;
             }
