@@ -210,6 +210,14 @@ public class FuzzerFactory {
             add("RFM:EEE201");
             add("RFM:FFFF01");
             add("RFM:FFFFFF");
+
+            add("RFM:54454C");
+            add("RFM:524A49");
+            add("RFM:64646D");
+            add("RFM:B000F1");
+            add("RFM:C001AA");
+            add("RFM:C001AB");
+            add("RFM:C001AD");
         }
     };
 }
