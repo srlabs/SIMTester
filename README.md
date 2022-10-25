@@ -5,7 +5,7 @@ SIMtester assess SIM card security in two dimensions:
 - **Cryptanalytic attack surface**: Collect cryptographic signatures and encryptions of known plaintexts
 - **Application attack surface**: Generate a list of all application identifiers (TAR) and find "unprotected" (MSL=0) applications
 
-## Install
+## Running SIMtester
 
 ### Prerequisites
 
@@ -13,15 +13,17 @@ SIMtester assess SIM card security in two dimensions:
 - PC/SC reader (via pcsc daemon) **–or–**
 - Osmocom phone (via libosmosim)
 
-TODO: download section
-
-## Running SIMtester
-
-### Run from LiveISO
-
-Choose "Run Test" -> "SIM" from main menu and follow the instructions.
-
 ### Run pre-compile binary
+
+```bash
+java -jar SIMTester.jar <arguments>
+```
+
+In case Java has problems to find the libpcsclite shared object, just submit the path manually:
+
+```bash
+java -Dsun.security.smartcardio.library=/lib/x86_64-linux-gnu/libpcsclite.so.1 -jar SIMTester.jar <arguments>
+```
 
 ## Usage
 
