@@ -20,7 +20,7 @@ public class SimCardLinearFixedFile extends SimCardElementaryFile {
                     System.out.println(LoggingUtils.formatDebugMessage("File Descriptor data (0x82): " + HexToolkit.toString(file_desc)));
                 }
                 if (file_desc[1] != (byte) 0x05) {
-                    throw new IllegalStateException("FCM template does not contain record information, wth?");
+                    throw new IllegalStateException("FCM template does not contain record information, wth? FCM: " + HexToolkit.toString(file_desc));
                 }
                 _recordLength = ((byte) ((byte) file_desc[4] << 8) | (byte) file_desc[5]);
                 _numberOfRecords = (byte) file_desc[6];

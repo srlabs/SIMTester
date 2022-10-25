@@ -1,0 +1,270 @@
+package de.srlabs.simlib;
+
+import java.util.*;
+
+public class MFSimCardFileMapping extends SimCardFileMapping {
+
+    @Override
+    protected Map<String, String[]> getFilesDetails() {
+        return new HashMap<String, String[]>() {{
+            put("3f00", new String[]{"MF", "Root Directory"});
+            put("3f00/2f00", new String[]{"EFdir", "Application directory"});
+            put("3f00/2f05", new String[]{"PL", "Preferred Languages"});
+            put("3f00/2f06", new String[]{"MF/arr", "Access Rule Reference"});
+            put("3f00/2f53", new String[]{"Axalto (U)Simera", "file that is used by the STK framework in case of an SMS PP Unformatted UPD"}); //FIXME: this is crap from some forum
+            put("3f00/2fe2", new String[]{"ICCID", "ICC Identification"});
+            put("3f00/2fe5", new String[]{"PIN", "Keys for CHV1; CHV2; PUK1; PUK2; and ADMx for GSM"});
+            put("3f00/2fe6", new String[]{"Key", "Ki for GSM authentication and OTA’s Authentication Keys Kid"});
+            put("3f00/5f11", new String[]{"Gemplus GemXpresso", "file that is used by the STK framework in case of an SMS PP Unformatted UPD"}); //FIXME: this is crap from some forum
+
+            put("3f00/7f10", new String[]{"DFtelecom", "Telecom Directory"});
+            put("3f00/7f10/6f06", new String[]{"DFtelecom/arr", "Access Rule Reference"});
+            put("3f00/7f10/6f3a", new String[]{"ADN", "Abbrev numbers"});
+            put("3f00/7f10/6f3b", new String[]{"FDN", "Fixed numbers"});
+            put("3f00/7f10/6f3c", new String[]{"SMS", "SMS"});
+            put("3f00/7f10/6f3d", new String[]{"CCP", "Capability conf"});
+            put("3f00/7f10/6f40", new String[]{"MSISDN", "MSISDN"});
+            put("3f00/7f10/6f42", new String[]{"SMSP", "SMS parameters"});
+            put("3f00/7f10/6f43", new String[]{"SMSS", "SMS status"});
+            put("3f00/7f10/6f44", new String[]{"LND", "Last number dialled"});
+            put("3f00/7f10/6f47", new String[]{"SMSR", "SMS Status reports"});
+            put("3f00/7f10/6f49", new String[]{"SDN", "Service Dialling Nrs"});
+            put("3f00/7f10/6f4a", new String[]{"EXT1", "Extension 1"});
+            put("3f00/7f10/6f4b", new String[]{"EXT2", "Extension 2"});
+            put("3f00/7f10/6f4c", new String[]{"EXT3", "Extension 3"});
+            put("3f00/7f10/6f4d", new String[]{"BDN", "Barred Numbers"});
+            put("3f00/7f10/6f4e", new String[]{"EXT4", "Extension 4"});
+            put("3f00/7f10/6f4f", new String[]{"ECCP", "Extended Capability Configuration Parameter"});
+            put("3f00/7f10/6f53", new String[]{"RMA", "Remote Management Actions"});
+            put("3f00/7f10/6f54", new String[]{"SUME", "SetUpMenu Elements"});
+            put("3f00/7f10/6f58", new String[]{"CMI", "Comparison Method Information"});
+            put("3f00/7f10/6fe0", new String[]{"ICE_DN", "In Case of Emergency – Dialling Number)"});
+            put("3f00/7f10/6fe1", new String[]{"ICE_FF", "In Case of Emergency – Free Format)"});
+            put("3f00/7f10/6fe5", new String[]{"PSISMSC", "Public Service Identity of the SM-SC"});
+            put("3f00/7f10/5f3a", new String[]{"DFphonebook", "Phone book Directory"});
+            put("3f00/7f10/5f3a/4f22", new String[]{"PSC", "PBook Sync counter"});
+            put("3f00/7f10/5f3a/4f23", new String[]{"CC", "PBook Change counter"});
+            put("3f00/7f10/5f3a/4f24", new String[]{"PUID", "PBook previous UID"});
+            put("3f00/7f10/5f3a/4f30", new String[]{"PBR", "PBook reference"});
+            put("3f00/7f10/5f3a/0000", new String[]{"PBccp1", "PBook Capability"});
+            put("3f00/7f10/5f3a/4f09", new String[]{"PBc", "PBook Control"});
+            put("3f00/7f10/5f3a/4f11", new String[]{"PBanr", "PBook addition nr"});
+            put("3f00/7f10/5f3a/4f19", new String[]{"PBsne", "PBook Second Name"});
+            put("3f00/7f10/5f3a/4f21", new String[]{"PBuid", "PBook Unique ID"});
+            put("3f00/7f10/5f3a/4f26", new String[]{"PBgrp", "PBook groups"});
+            put("3f00/7f10/5f3a/4f3a", new String[]{"PBadn", "PBook Abbrev numbers"});
+            put("3f00/7f10/5f3a/4f4a", new String[]{"PBext1", "PBook extension 1"});
+            put("3f00/7f10/5f3a/4f4b", new String[]{"PBass", "PBook additional nrs"});
+            put("3f00/7f10/5f3a/4f4c", new String[]{"PBgas", "PBook group desc"});
+            put("3f00/7f10/5f3a/4f50", new String[]{"PBemail", "PBook email address"});
+            put("3f00/7f10/5f50/4f20", new String[]{"IMG", "Image"});
+
+            put("3f00/7f20", new String[]{"DFgsm", "GSM Directory"});
+            put("3f00/7f20/5f30", new String[]{"DFiridium", ""});
+            put("3f00/7f20/5f31", new String[]{"DFglobst", ""});
+            put("3f00/7f20/5f32", new String[]{"DFico", ""});
+            put("3f00/7f20/5f33", new String[]{"DFaces", ""});
+            put("3f00/7f20/5f3C", new String[]{"DFmexe", "Mobile Execution Environment Directory"});
+            put("3f00/7f20/5f3C/4F40", new String[]{"MExE-ST", "Mobile Execution Environment Service Table"});
+            put("3f00/7f20/5f3C/4F41", new String[]{"ORPK", "Operator root public key"});
+            put("3f00/7f20/5f3C/4F42", new String[]{"ARPK", "Administrator root public key"});
+            put("3f00/7f20/5f3C/4F43", new String[]{"TPRPK", "Third Party root public key"});
+            put("3f00/7f20/5f40", new String[]{"DFeia/tia-553", "EIT/TIA-553 Analog Cellular Directory"});
+            put("3f00/7f20/5f60", new String[]{"DFcts", "Cordless Telephony System Directory"});
+            put("3f00/7f20/5f70", new String[]{"DFsolsa", "Support of Localised Service Area Directory"});
+            put("3f00/7f20/5f70/4f30", new String[]{"SAI", "SoLSA Access Indicator"});
+            put("3f00/7f20/5f70/4f31", new String[]{"SLL", "SoLSA LSA List"});
+            put("3f00/7f20/6f05", new String[]{"LP", "Language Preference"});
+            put("3f00/7f20/6f07", new String[]{"IMSI", "IMSI"});
+            put("3f00/7f20/6f09", new String[]{"KeyPS", "Keys for Packet domain"});
+            put("3f00/7f20/6f20", new String[]{"Kc", "Ciphering key Kc"});
+            put("3f00/7f20/6f2c", new String[]{"DCK", "De-personalise Key"});
+            put("3f00/7f20/6f30", new String[]{"PLMNsel", "PLMN selector"});
+            put("3f00/7f20/6f31", new String[]{"HPPLMN", "HPLMN search period"});
+            put("3f00/7f20/6f32", new String[]{"CNL", "Co-operative Networks"});
+            put("3f00/7f20/6f37", new String[]{"ACMmax", "ACM maximum value"});
+            put("3f00/7f20/6f38", new String[]{"SST", "SIM service table"});
+            put("3f00/7f20/6f39", new String[]{"ACM", "Call meter"});
+            put("3f00/7f20/6f3e", new String[]{"GID1", "Group Id Level 1"});
+            put("3f00/7f20/6f3f", new String[]{"GID2", "Group Id Level 2"});
+            put("3f00/7f20/6f41", new String[]{"PUCT", "Price per unit"});
+            put("3f00/7f20/6f45", new String[]{"CBMI", "Bcast msg id"});
+            put("3f00/7f20/6f46", new String[]{"SPN", "Network Name"});
+            put("3f00/7f20/6f48", new String[]{"CMMID", "Cell BCast for Data"});
+            put("3f00/7f20/6f50", new String[]{"CBMIR", "Cell BCast msg ID"});
+            put("3f00/7f20/6f51", new String[]{"NIA", "Network Ind Alerting"});
+            put("3f00/7f20/6f52", new String[]{"KcGPRS", "GPRS Ciphering Key"});
+            put("3f00/7f20/6f53", new String[]{"LOCIGPRS", "GPRS location info"});
+            put("3f00/7f20/6f54", new String[]{"SUME", "SetUpMenu Elements"});
+            put("3f00/7f20/6f60", new String[]{"PLMNwAcT", "User PLMN Selector"});
+            put("3f00/7f20/6f61", new String[]{"OPLMNwAcT", "OPerator PLMN Select"});
+            put("3f00/7f20/6f62", new String[]{"HPLMNwAcT", "HPLMN Selector"});
+            put("3f00/7f20/6f63", new String[]{"CPBCCH", "CPBCCH Information"});
+            put("3f00/7f20/6f64", new String[]{"InvScan", "Investingation Scan"});
+            put("3f00/7f20/6f74", new String[]{"BCCH", "Bcast control chans"});
+            put("3f00/7f20/6f78", new String[]{"ACC", "Access control class"});
+            put("3f00/7f20/6f7b", new String[]{"FPLMN", "Forbidden PLMNs"});
+            put("3f00/7f20/6f7e", new String[]{"LOCI", "Location information"});
+            put("3f00/7f20/6fad", new String[]{"AD", "Administrative data"});
+            put("3f00/7f20/6fae", new String[]{"Phase", "Phase identification"});
+            put("3f00/7f20/6fb1", new String[]{"VGCS", "Voice call group srv"});
+            put("3f00/7f20/6fb2", new String[]{"VGCSS", "Voice group call stat"});
+            put("3f00/7f20/6fb3", new String[]{"VBS", "Voice broadcast srv"});
+            put("3f00/7f20/6fb4", new String[]{"VBSS", "Voice broadcast stat"});
+            put("3f00/7f20/6fb5", new String[]{"eMLPP", "Enhan Mult Lvl Prio"});
+            put("3f00/7f20/6fb6", new String[]{"AAeM", "Auto Answer for eMLPP"});
+            put("3f00/7f20/6fb7", new String[]{"ECC", "Emergency Call Codes"});
+            put("3f00/7f20/6fc5", new String[]{"PNN", "PLMN Network Name"});
+            put("3f00/7f20/6fc6", new String[]{"OPL", "Operator PLMN list"});
+            put("3f00/7f20/6fc7", new String[]{"MBDN", "Mailbox Dialling Nrs"});
+            put("3f00/7f20/6fc8", new String[]{"EXT6", "Extension6"});
+            put("3f00/7f20/6fc9", new String[]{"MBI", "Mailbox Identifier"});
+            put("3f00/7f20/6fca", new String[]{"MWIS", "Message Waiting Stat"});
+            put("3f00/7f20/6fcb", new String[]{"CFIS", "Call Fwd Ind Status"});
+            put("3f00/7f20/6fcc", new String[]{"EXT7", "Extension7"});
+            put("3f00/7f20/6fcd", new String[]{"SPDI", "Service Prov Display"});
+            put("3f00/7f20/6fce", new String[]{"MMSN", "MMS Notification"});
+            put("3f00/7f20/6fcf", new String[]{"EXT8", "Extension8"});
+            put("3f00/7f20/6fd0", new String[]{"MMSICP", "MMS Issuer Params"});
+            put("3f00/7f20/6fd1", new String[]{"MMSUP", "MMS User Preferences"});
+            put("3f00/7f20/6fd2", new String[]{"MMSUCP", "MMS User Params"});
+            put("3f00/7f20/6f06", new String[]{"USIMarr", "Access Rule Reference"});
+            put("3f00/7f20/6f08", new String[]{"USIMkeys", "Ciphering and keys"});
+            put("3f00/7f20/6f3b", new String[]{"USIMfdn", "Fixed numbers"});
+            put("3f00/7f20/6f3c", new String[]{"USIMsms", "SMS"});
+            put("3f00/7f20/6f40", new String[]{"USIMmsisdn", "MSISDN"});
+            put("3f00/7f20/6f42", new String[]{"USIMsmsp", "SMS parameters"});
+            put("3f00/7f20/6f43", new String[]{"USIMsmss", "SMS status"});
+            put("3f00/7f20/6f47", new String[]{"USIMsmsr", "SMS Status reports"});
+            put("3f00/7f20/6f49", new String[]{"USIMsdn", "Service Dialling Nrs"});
+            put("3f00/7f20/6f4a", new String[]{"USIMext1", "Extension 1"});
+            put("3f00/7f20/6f4b", new String[]{"USIMext2", "Extension 2"});
+            put("3f00/7f20/6f4c", new String[]{"USIMext3", "Extension 3"});
+            put("3f00/7f20/6f4d", new String[]{"USIMbdn", "Barred Numbers"});
+            put("3f00/7f20/6f4e", new String[]{"USIMext5", "Extension 5"});
+            put("3f00/7f20/6f4f", new String[]{"USIMccp2", "Capability Config 2"});
+            put("3f00/7f20/6f55", new String[]{"USIMext4", "Extension 4"});
+            put("3f00/7f20/6f56", new String[]{"USIMest", "Enabled Services"});
+            put("3f00/7f20/6f57", new String[]{"USIMacl", "Access Control List"});
+            put("3f00/7f20/6f58", new String[]{"USIMcmi", "Comparision Method"});
+            put("3f00/7f20/6f5b", new String[]{"USIMstarthfn", "Init for Hyperframe"});
+            put("3f00/7f20/6f5c", new String[]{"USIMthreshold", "Max value for START"});
+            put("3f00/7f20/6f73", new String[]{"USIMpsloci", "Packet switched locn"});
+            put("3f00/7f20/6f80", new String[]{"USIMici", "Incoming Calls"});
+            put("3f00/7f20/6f81", new String[]{"USIMoci", "Outgoing Calls"});
+            put("3f00/7f20/6f82", new String[]{"USIMict", "Incoming Call Timer"});
+            put("3f00/7f20/6f83", new String[]{"USIMoct", "Outgoing Call Timer"});
+            put("3f00/7f20/6fc3", new String[]{"USIMhiddenkey", "Key for hidden pbook"});
+            put("3f00/7f20/6fc4", new String[]{"USIMnetpar", "Network parameters"});
+            put("3f00/7f20/6fd3", new String[]{"USIMnia", "Network Ind Alerting"});
+            put("3f00/7f20/6fd4", new String[]{"USIMvgcsca", "Voice grp cipher alg"});
+            put("3f00/7f20/6fd5", new String[]{"USIMvbsca", "Voice brd cipher alg"});
+            put("3f00/7f20/6fd6", new String[]{"USIMgbabp", "GBA Bootstrap"});
+            put("3f00/7f20/6fd7", new String[]{"USIMmsk", "MBMS Service Keys"});
+            put("3f00/7f20/6fd8", new String[]{"USIMmuk", "MBMS User Key"});
+            put("3f00/7f20/6fd9", new String[]{"USIMehplmn", "Evuiv HPLMN"});
+            put("3f00/7f20/6fda", new String[]{"USIMgbanl", "GBA NAF List"});
+            put("3f00/7f20/5f3b", new String[]{"DFmultimedia", "Multi media Directory"});
+
+            put("3f00/7f21", new String[]{"DF DCS1800", "DCS1800 Directory"});
+            put("3f00/7f21/6f05", new String[]{"LP", "Language Preference"});
+            put("3f00/7f21/6f07", new String[]{"IMSI", "IMSI"});
+            put("3f00/7f21/6f09", new String[]{"KeyPS", "Keys for Packet domain"});
+            put("3f00/7f21/6f20", new String[]{"Kc", "Ciphering key Kc"});
+            put("3f00/7f21/6f2c", new String[]{"DCK", "De-personalise Key"});
+            put("3f00/7f21/6f30", new String[]{"PLMNsel", "PLMN selector"});
+            put("3f00/7f21/6f31", new String[]{"HPPLMN", "HPLMN search period"});
+            put("3f00/7f21/6f32", new String[]{"CNL", "Co-operative Networks"});
+            put("3f00/7f21/6f37", new String[]{"ACMmax", "ACM maximum value"});
+            put("3f00/7f21/6f38", new String[]{"SST", "SIM service table"});
+            put("3f00/7f21/6f39", new String[]{"ACM", "Call meter"});
+            put("3f00/7f21/6f3e", new String[]{"GID1", "Group Id Level 1"});
+            put("3f00/7f21/6f3f", new String[]{"GID2", "Group Id Level 2"});
+            put("3f00/7f21/6f41", new String[]{"PUCT", "Price per unit"});
+            put("3f00/7f21/6f45", new String[]{"CBMI", "Bcast msg id"});
+            put("3f00/7f21/6f46", new String[]{"SPN", "Network Name"});
+            put("3f00/7f21/6f48", new String[]{"CMMID", "Cell BCast for Data"});
+            put("3f00/7f21/6f50", new String[]{"CBMIR", "Cell BCast msg ID"});     // The standard places this one under 7f20
+            put("3f00/7f21/6f51", new String[]{"NIA", "Network Ind Alerting"});    // The standard places this one under 7f20
+            put("3f00/7f21/6f52", new String[]{"KcGPRS", "GPRS Ciphering Key"});   // The standard places this one under 7f20
+            put("3f00/7f21/6f53", new String[]{"LOCIGPRS", "GPRS location info"}); // The standard places this one under 7f20
+            put("3f00/7f21/6f54", new String[]{"SUME", "SetUpMenu Elements"});
+            put("3f00/7f21/6f60", new String[]{"PLMNwAcT", "User PLMN Selector"}); // The standard places this one under 7f20
+            put("3f00/7f21/6f61", new String[]{"OPLMNwAcT", "OPerator PLMN Select"});  // The standard places this one under 7f20
+            put("3f00/7f21/6f62", new String[]{"HPLMNwAcT", "HPLMN Selector"});    // The standard places this one under 7f20
+            put("3f00/7f21/6f63", new String[]{"CPBCCH", "CPBCCH Information"});   // The standard places this one under 7f20
+            put("3f00/7f21/6f64", new String[]{"InvScan", "Investingation Scan"}); // The standard places this one under 7f20
+            put("3f00/7f21/6f74", new String[]{"BCCH", "Bcast control chans"});
+            put("3f00/7f21/6f78", new String[]{"ACC", "Access control class"});
+            put("3f00/7f21/6f7b", new String[]{"FPLMN", "Forbidden PLMNs"});
+            put("3f00/7f21/6f7e", new String[]{"LOCI", "Location information"});
+            put("3f00/7f21/6fad", new String[]{"AD", "Administrative data"});
+            put("3f00/7f21/6fae", new String[]{"Phase", "Phase identification"});
+            put("3f00/7f21/6fb1", new String[]{"VGCS", "Voice call group srv"});
+            put("3f00/7f21/6fb2", new String[]{"VGCSS", "Voice group call stat"});
+            put("3f00/7f21/6fb3", new String[]{"VBS", "Voice broadcast srv"});
+            put("3f00/7f21/6fb4", new String[]{"VBSS", "Voice broadcast stat"});
+            put("3f00/7f21/6fb5", new String[]{"eMLPP", "Enhan Mult Lvl Prio"});
+            put("3f00/7f21/6fb6", new String[]{"AAeM", "Auto Answer for eMLPP"});
+            put("3f00/7f21/6fb7", new String[]{"ECC", "Emergency Call Codes"});
+            put("3f00/7f21/6fc5", new String[]{"PNN", "PLMN Network Name"});
+            put("3f00/7f21/6fc6", new String[]{"OPL", "Operator PLMN list"});
+            put("3f00/7f21/6fc7", new String[]{"MBDN", "Mailbox Dialling Nrs"});
+            put("3f00/7f21/6fc8", new String[]{"EXT6", "Extension6"});
+            put("3f00/7f21/6fc9", new String[]{"MBI", "Mailbox Identifier"});
+            put("3f00/7f21/6fca", new String[]{"MWIS", "Message Waiting Stat"});
+            put("3f00/7f21/6fcb", new String[]{"CFIS", "Call Fwd Ind Status"});
+            put("3f00/7f21/6fcc", new String[]{"EXT7", "Extension7"});
+            put("3f00/7f21/6fcd", new String[]{"SPDI", "Service Prov Display"});
+            put("3f00/7f21/6fce", new String[]{"MMSN", "MMS Notification"});
+            put("3f00/7f21/6fcf", new String[]{"EXT8", "Extension8"});
+            put("3f00/7f21/6fd0", new String[]{"MMSICP", "MMS Issuer Params"});
+            put("3f00/7f21/6fd1", new String[]{"MMSUP", "MMS User Preferences"});
+            put("3f00/7f21/6fd2", new String[]{"MMSUCP", "MMS User Params"});
+            put("3f00/7f21/6f06", new String[]{"USIMarr", "Access Rule Reference"});
+            put("3f00/7f21/6f08", new String[]{"USIMkeys", "Ciphering and keys"});
+            put("3f00/7f21/6f3b", new String[]{"USIMfdn", "Fixed numbers"});
+            put("3f00/7f21/6f3c", new String[]{"USIMsms", "SMS"});
+            put("3f00/7f21/6f40", new String[]{"USIMmsisdn", "MSISDN"});
+            put("3f00/7f21/6f42", new String[]{"USIMsmsp", "SMS parameters"});
+            put("3f00/7f21/6f43", new String[]{"USIMsmss", "SMS status"});
+            put("3f00/7f21/6f47", new String[]{"USIMsmsr", "SMS Status reports"});
+            put("3f00/7f21/6f49", new String[]{"USIMsdn", "Service Dialling Nrs"});
+            put("3f00/7f21/6f4a", new String[]{"USIMext1", "Extension 1"});
+            put("3f00/7f21/6f4b", new String[]{"USIMext2", "Extension 2"});
+            put("3f00/7f21/6f4c", new String[]{"USIMext3", "Extension 3"});
+            put("3f00/7f21/6f4d", new String[]{"USIMbdn", "Barred Numbers"});
+            put("3f00/7f21/6f4e", new String[]{"USIMext5", "Extension 5"});
+            put("3f00/7f21/6f4f", new String[]{"USIMccp2", "Capability Config 2"});
+            put("3f00/7f21/6f55", new String[]{"USIMext4", "Extension 4"});
+            put("3f00/7f21/6f56", new String[]{"USIMest", "Enabled Services"});
+            put("3f00/7f21/6f57", new String[]{"USIMacl", "Access Control List"});
+            put("3f00/7f21/6f58", new String[]{"USIMcmi", "Comparision Method"});
+            put("3f00/7f21/6f5b", new String[]{"USIMstarthfn", "Init for Hyperframe"});
+            put("3f00/7f21/6f5c", new String[]{"USIMthreshold", "Max value for START"});
+            put("3f00/7f21/6f73", new String[]{"USIMpsloci", "Packet switched locn"});
+            put("3f00/7f21/6f80", new String[]{"USIMici", "Incoming Calls"});
+            put("3f00/7f21/6f81", new String[]{"USIMoci", "Outgoing Calls"});
+            put("3f00/7f21/6f82", new String[]{"USIMict", "Incoming Call Timer"});
+            put("3f00/7f21/6f83", new String[]{"USIMoct", "Outgoing Call Timer"});
+            put("3f00/7f21/6fc3", new String[]{"USIMhiddenkey", "Key for hidden pbook"});
+            put("3f00/7f21/6fc4", new String[]{"USIMnetpar", "Network parameters"});
+            put("3f00/7f21/6fd3", new String[]{"USIMnia", "Network Ind Alerting"});
+            put("3f00/7f21/6fd4", new String[]{"USIMvgcsca", "Voice grp cipher alg"});
+            put("3f00/7f21/6fd5", new String[]{"USIMvbsca", "Voice brd cipher alg"});
+            put("3f00/7f21/6fd6", new String[]{"USIMgbabp", "GBA Bootstrap"});
+            put("3f00/7f21/6fd7", new String[]{"USIMmsk", "MBMS Service Keys"});
+            put("3f00/7f21/6fd8", new String[]{"USIMmuk", "MBMS User Key"});
+            put("3f00/7f21/6fd9", new String[]{"USIMehplmn", "Evuiv HPLMN"});
+            put("3f00/7f21/6fda", new String[]{"USIMgbanl", "GBA NAF List"});
+            put("3f00/7f21/5f3b", new String[]{"DFmultimedia", "Multi media Directory"});
+
+            // The following file systems are present here: https://www.etsi.org/deliver/etsi_ts/100900_100999/100977/08.14.00_60/ts_100977v081400p.pdf
+            put("3f00/7f22", new String[]{"IS-41", "IS-41 standard"});
+            put("3f00/7f23", new String[]{"FP-CTS", "Fixed Part Cordless Telephony System"});
+
+            put("3f00/7f45", new String[]{"S@T", "SIMalliance Toolbox"});
+            put("3f00/7f55", new String[]{"N@vigate", ""});
+        }};
+    }
+}

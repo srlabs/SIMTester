@@ -59,21 +59,6 @@ public class APDUToolkit {
         return r;
     }
 
-    public static ResponseAPDU selectApplication(String AID) throws CardException {
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("Selecting AID: " + AID));
-        }
-
-        CommandAPDU selectApp = new CommandAPDU((byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, HexToolkit.fromString(AID));
-        ResponseAPDU r = ChannelHandler.transmitOnDefaultChannel(selectApp);
-
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("Got response: " + HexToolkit.toString(r.getBytes())));
-        }
-
-        return r;
-    }
-
     public static ResponseAPDU runGSMAlgo2G(byte[] rand) throws CardException, FileNotFoundException {
         FileManagement.selectPath("3F007F20");
         CommandAPDU cmd = new CommandAPDU((byte) 0xA0, (byte) 0x88, (byte) 0x00, (byte) 0x00, rand);

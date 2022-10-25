@@ -1,25 +1,18 @@
 package de.srlabs.simtester;
 
-import de.srlabs.simlib.APDUToolkit;
-import de.srlabs.simlib.Auth;
-import de.srlabs.simlib.AutoTerminalProfile;
-import de.srlabs.simlib.ChannelHandler;
-import de.srlabs.simlib.CommonFileReader;
-import de.srlabs.simlib.Debug;
-import de.srlabs.simlib.FileManagement;
-import de.srlabs.simlib.HexToolkit;
-import de.srlabs.simlib.LoggingUtils;
-import de.srlabs.simlib.SIMLibrary;
+import de.srlabs.simlib.*;
+
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
-import javax.smartcardio.CardException;
-import javax.smartcardio.CardTerminal;
-import javax.smartcardio.ResponseAPDU;
-import javax.smartcardio.TerminalFactory;
+import java.util.stream.Collectors;
+import javax.smartcardio.*;
+
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.CommandLineParser;
 import org.apache.commons.cli.GnuParser;
@@ -49,7 +42,7 @@ public class SIMTester {
     public static String EF_DIR = null;
     public static String AUTH = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v1.9, 2019-09-26";
+    private static final String version = "SIMTester v2.0.0, 2022-10-25";
     private static Fuzzer _fuzzer = null;
     private static TARScanner _tarscanner = null;
     private static CSVWriter _writer = null;
@@ -59,12 +52,15 @@ public class SIMTester {
         System.out.println();
         System.out.println("########################################");
         System.out.println("  " + version);
-        System.out.println("  Lukas Kuzmiak (lukas@srlabs.de)       ");
-        System.out.println("  Luca Melette  (luca@srlabs.de)        ");
-        System.out.println("  Jonas Schmid  (jonas@srlabs.de)       ");
+        System.out.println("  Lukas Kuzmiak    (lukas@srlabs.de)    ");
+        System.out.println("  Luca Melette     (luca@srlabs.de)     ");
+        System.out.println("  Jonas Schmid     (jonas@srlabs.de)    ");
+        System.out.println("  Gabriel Arnautu  (gabriel@srlabs.de)  ");
         System.out.println("  Security Research Labs, Berlin, " + Calendar.getInstance().get(Calendar.YEAR));
         System.out.println("########################################");
         System.out.println();
+
+        Instant startPeriod = Instant.now();
 
         Runtime.getRuntime().addShutdownHook(new Thread() {
             @Override
@@ -77,7 +73,7 @@ public class SIMTester {
                     _fuzzer.interrupt();
                     try {
                         _fuzzer.join(); // wait for all actions in thread to finish
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException ignored) {
                     }
                 }
 
@@ -86,13 +82,13 @@ public class SIMTester {
                     try {
                         _tarscanner.join(); // wait for all actions in thread to finish
                         _tarscanner.scanExit();
-                    } catch (InterruptedException e) {
+                    } catch (InterruptedException ignored) {
                     }
                 }
 
                 try {
                     ChannelHandler.disconnectCard(); // FIXME: this get hung up if layer1 connection does not answer anymore and you have to kill -9 <java>
-                } catch (CardException e) {
+                } catch (CardException ignored) {
                 }
 
                 if (null != _fuzzer) {
@@ -110,6 +106,8 @@ public class SIMTester {
                         }
                     }
                 }
+
+                System.out.println("Execution time (minutes): " + Duration.between(startPeriod, Instant.now()).toMinutes());
             }
         });
 
@@ -239,19 +237,17 @@ public class SIMTester {
 
         ICCID = CommonFileReader.readICCID();
         EF_MANUAREA = CommonFileReader.readMANUAREA();
-        EF_DIR = CommonFileReader.readDIR();
         System.out.println("ICCID: " + ICCID);
 
-        if (SIMLibrary.third_gen_apdu) {
-            String aid = CommonFileReader.getUSIMAID();
-            System.out.println("\033[96mRead USIM AID: " + aid + "\033[0m");
-            res = APDUToolkit.selectApplication(aid);
-            System.out.println("\033[96mTried to select USIM AID, result: " + HexToolkit.toString(res.getBytes()) + "\033[0m");
+        // Set EF_DIR
+        ArrayList<byte[]> dirRecords = CommonFileReader.readDIR();
+        if (dirRecords.size() > 0) {
+            EF_DIR = dirRecords.stream().map(HexToolkit::toString).collect(Collectors.joining(";"));
 
-            if ((short) res.getSW() != (short) 0x9000) {
-                SIMLibrary.third_gen_apdu = false;
-                System.out.println("\033[95m" + "WARNING! Unable to select USIM AID, falling back to 2G (reset in-progress)!" + "\033[0m");
-                ChannelHandler.getInstance().reset();
+            // Print EF_DIR content
+            System.out.format("The EF_DIR has %d record(s)\n", dirRecords.size());
+            for (int i = 0; i < dirRecords.size(); i++) {
+                System.out.format("Record %d: %s\n", i, HexToolkit.toString(dirRecords.get(i)));
             }
         }
 
@@ -280,6 +276,13 @@ public class SIMTester {
         System.out.println("EF_DIR: " + EF_DIR);
 
         if (SIMLibrary.third_gen_apdu) {
+            String usimAID = CommonFileReader.getUSIMAID();
+            if (usimAID == null) {
+                throw new CardException("There is no USIM available.");
+            }
+
+            FileManagement.selectAID(HexToolkit.fromString(usimAID));
+
             byte[] challenge = new byte[17];
             Arrays.fill(challenge, (byte) 0x00);
             challenge[0] = (byte) 16;
@@ -288,9 +291,14 @@ public class SIMTester {
             if ((byte) res.getSW1() == (byte) 0x61) {
                 res = APDUToolkit.getResponse(res.getSW2());
                 AUTH = "3G_" + HexToolkit.toString(res.getData());
-            } else {
+            } else if ((short) res.getSW() == (short) 0x9000) {
                 AUTH = "3G_" + HexToolkit.toString(res.getBytes());
+            } else {
+                System.err.println("\033[96m" + "3G AUTH FAILED, " + String.format("%04X", res.getSW()) + " returned. Please investigate, fix and try again...\033[0m");
+                System.exit(1);
             }
+
+            ChannelHandler.getInstance().reset();
         } else {
             byte[] rand = new byte[16];
             Arrays.fill(rand, (byte) 0x00);
@@ -299,7 +307,8 @@ public class SIMTester {
                 res = APDUToolkit.getResponse(res.getSW2());
                 AUTH = "2G_" + HexToolkit.toString(res.getData());
             } else {
-                AUTH = "2G_" + HexToolkit.toString(res.getBytes());
+                System.err.println("\033[96m" + "2G AUTH FAILED, " + String.format("%04X", res.getSW()) + " returned. Please investigate, fix and try again...\033[0m");
+                System.exit(1);
             }
         }
 
@@ -324,13 +333,6 @@ public class SIMTester {
                 System.out.println(LoggingUtils.formatDebugMessage("Automatic Terminal profile initialization FAILED!"));
             }
         }
-
-        if (SIMLibrary.third_gen_apdu) {
-            String aid = CommonFileReader.getUSIMAID();
-            System.out.println("\033[96mRead USIM AID: " + aid + "\033[0m");
-            res = APDUToolkit.selectApplication(aid);
-            System.out.println("\033[96mTried to select USIM AID, result: " + HexToolkit.toString(res.getBytes()) + "\033[0m");
-        }
     }
 
     private static void fuzz() throws Exception {
@@ -341,7 +343,7 @@ public class SIMTester {
         System.out.println();
 
         ArrayList<FuzzerData> fuzzers = new ArrayList<>();
-        List keysets = null;
+        List<Integer> keysets = null;
         switch (_fuzzingLevel) {
             case "FULL":
                 fuzzers.addAll(FuzzerFactory.getAllFuzzers());
@@ -379,17 +381,12 @@ public class SIMTester {
         }
 
         if (null != customKeysets) {
-            keysets = new ArrayList<>();
-            for (Integer oneKeyset : customKeysets) {
-                keysets.add(oneKeyset);
-            }
+            keysets = new ArrayList<>(customKeysets);
         }
 
         if (null != customTARs) {
             TARs = new ArrayList<>();
-            for (String oneTAR : customTARs) {
-                TARs.add(oneTAR);
-            }
+            TARs.addAll(customTARs);
         }
 
         System.out.println("TAR values to be fuzzed: " + TARs);
@@ -532,7 +529,7 @@ public class SIMTester {
                 terminal.connect("T=0");
                 ChannelHandler.getInstance(i, null);
                 System.out.println("IDX: " + i + ", ICCID = " + CommonFileReader.readICCID());
-            } catch (CardException e) {
+            } catch (CardException ignored) {
             } finally {
                 i++;
             }
@@ -638,39 +635,26 @@ public class SIMTester {
             if (SIMLibrary.third_gen_apdu) { // auto-detect if card supports 3G APDUs
                 try {
                     ResponseAPDU response = FileManagement.selectFileById(new byte[]{(byte) 0x3F, (byte) 0x00});
-                    if ((short) response.getSW() != (short) 0x9000 && (byte) response.getSW1() != (byte) 0x91 && (byte) response.getSW1() != (byte) 0x61) { // 3G failed
-                        System.err.println("\033[96m" + "3G APDU FAILED, " + String.format("%04X", response.getSW()) + " returned, this card does NOT support 3G, falling back to 2G and auto-retrying..\033[0m");
-                        SIMLibrary.third_gen_apdu = false;
-
-                        try {
-                            if (null != CommonFileReader.getUSIMAID()) {
-                                System.out.println("\033[95m" + "WARNING! Card doesn't seem to accept 3G APDUs but EF_DIR AID is present, report this!" + "\033[0m");
-                            }
-                        } catch (CardException e) {
-                            if (DEBUG) { // only display something for DEBUG - otherwise let's ignore this (probably EF_DIR full of 0xFF)
-                                System.err.println(LoggingUtils.formatDebugMessage("EF_DIR has malformed content! Does not contain 0x4F tag"));
-                            }
-                        }
-                    } else {
-                        try {
-                            if (null == CommonFileReader.getUSIMAID()) {
-                                System.out.println("\033[95m" + "WARNING! Card's EF_DIR seems to be empty!" + "\033[0m");
-                            } else {
-                                System.out.println("\033[96m" + "Card seems to support 3G APDUs..\033[0m");
-                            }
-                        } catch (CardException e) {
-                            System.err.println("\033[96m" + "Unable to read USIM AID - file empty of malformed - falling back to 2G APDUs!" + "\033[0m");
+                    if ((short) response.getSW() != (short) 0x9000) { // 3G failed
+                        if ((short) response.getSW() == (short) 0x6E00) {
+                            // Class not supported
+                            System.err.println("\033[96m" + "3G APDU FAILED, this card does NOT support 3G, falling back to 2G and auto-retrying..\033[0m");
                             SIMLibrary.third_gen_apdu = false;
+                        } else {
+                            // Other error, so not a good sign, you have to investigate...
+                            System.err.println("\033[96m" + "3G APDU FAILED, " + String.format("%04X", response.getSW()) + " returned. Please investigate, fix and try again...\033[0m");
+                            System.exit(1);
                         }
                     }
                     if (DEBUG) {
                         System.out.println(LoggingUtils.formatDebugMessage("3G auto-detect returned: " + HexToolkit.toString(response.getBytes())));
                     }
                 } catch (CardException e) {
-                    System.err.println("3G support auto-detect failed, leaving 3G APDU mode on, expect messy behavior!");
                     e.printStackTrace(System.err);
+                    System.exit(1);
                 }
             }
+            ChannelHandler.getInstance().reset();
 
             if (cmdline.hasOption("dp")) {
                 System.out.println("Disabling PIN1/CHV1..");
@@ -719,6 +703,7 @@ public class SIMTester {
             }
 
             if (cmdline.hasOption("sf")) {
+                readBasicInfo();
                 boolean breakAfterCount = false;
                 boolean lazyScan = false;
 
@@ -730,7 +715,11 @@ public class SIMTester {
                     lazyScan = true;
                 }
 
-                FileScanner.scanSim(breakAfterCount, lazyScan);
+                CSVWriter _writer = new CSVWriter(ICCID, "FILE", _logging);
+                _writer.writeBasicInfo(ATR, ICCID, IMSI, MSISDN, EF_MANUAREA, EF_DIR, AUTH, AppDeSelect);
+                FileScanner.scanSim(breakAfterCount, lazyScan, _writer);
+
+                _writer.unhideFile();
                 System.out.println("done scanning files, exiting..");
                 System.exit(0);
             }

@@ -19,7 +19,7 @@ public class TLVToolkit {
         }
         
         if (tlv == null || tlv.length < 1) {
-            throw new IllegalArgumentException("Invalid TLV");
+            throw new IllegalArgumentException("Invalid TLV. tlv=" + HexToolkit.toString(tlv));
         }
         
         int c = 0;

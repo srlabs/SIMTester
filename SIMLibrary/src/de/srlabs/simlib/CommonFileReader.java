@@ -3,7 +3,9 @@ package de.srlabs.simlib;
 import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import javax.smartcardio.Card;
 import javax.smartcardio.CardException;
+import javax.smartcardio.ResponseAPDU;
 
 public class CommonFileReader {
 
@@ -293,14 +295,25 @@ public class CommonFileReader {
 
         SimCardFile file;
 
+        // The file can be located under 3f007f206f07 or USIM/6f07
         try {
-            if (SIMLibrary.third_gen_apdu) {
-                file = FileManagement.selectPath("6f07");
-            } else {
-                file = FileManagement.selectPath("3f007f206f07");
-            }
+            file = FileManagement.selectPath("3f007f206f07");
         } catch (FileNotFoundException e) {
             file = null;
+        }
+
+        // Look for the file under USIM/6f07
+        if (file == null && SIMLibrary.third_gen_apdu) {
+            try {
+                String usimAID = CommonFileReader.getUSIMAID();
+                if (usimAID == null) {
+                    throw new CardException("There is no USIM available.");
+                }
+
+                FileManagement.selectAID(HexToolkit.fromString(usimAID));
+                file = FileManagement.selectPath("6f07");
+            } catch (FileNotFoundException ignored) {
+            }
         }
 
         if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
@@ -400,7 +413,8 @@ public class CommonFileReader {
         }
     }
 
-    public static String readDIR() throws CardException {
+    public static ArrayList<byte[]> readDIR() throws CardException {
+        ArrayList<byte[]> records = new ArrayList<>();
 
         if (DEBUG) {
             System.out.println(LoggingUtils.formatDebugMessage("reading EF_DIR file"));
@@ -409,70 +423,46 @@ public class CommonFileReader {
         SimCardFile file;
 
         try {
-            if (SIMLibrary.third_gen_apdu) {
-                file = FileManagement.selectPath("2f00");
-            } else {
-                file = FileManagement.selectPath("3f002f00");
-            }
+            file = FileManagement.selectPath("3f002f00");
         } catch (FileNotFoundException e) {
-            file = null;
+            return records;
         }
 
-        if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
-            if (file instanceof SimCardLinearFixedFile) {
-                int numRecords = ((SimCardLinearFixedFile) file).getNumberOfRecords();
-                int recordLength = ((SimCardLinearFixedFile) file).getRecordLength();
-                for (int i = 1; i <= numRecords; i++) {
-                    byte[] content = ((SimCardLinearFixedFile) file).getRecord(i);
-                    System.out.println("Record " + i + ": " + HexToolkit.toString(content));
-                }
-                byte[] recordContent = ((SimCardLinearFixedFile) file).getFirstRecord();
+        if (file instanceof SimCardLinearFixedFile) {
+            int noOfRecords = ((SimCardLinearFixedFile) file).getNumberOfRecords();
+            for(int i = 1; i <= noOfRecords; i++) {
+                byte[] recordContent = ((SimCardLinearFixedFile) file).getRecord(i);
+
                 if (null != recordContent) {
-                    return HexToolkit.toString(recordContent);
-                } else {
-                    return null;
+                    records.add(recordContent);
                 }
-            } else {
-                return null;
             }
-        } else {
-            return null;
         }
+
+        return records;
+    }
+
+    public static ArrayList<String> getAIDs() throws CardException {
+        ArrayList<String> aids = new ArrayList<>();
+        ArrayList<byte[]> dirRecords = readDIR();
+
+        for (byte[] recordContent: dirRecords) {
+            byte[] aid_data = TLVToolkit.getTLV(recordContent, (byte) 0x4F);
+            if (null != aid_data) {
+                byte[] aid = Arrays.copyOfRange(aid_data, 2, 2 + aid_data[1]);
+                aids.add(HexToolkit.toString(aid));
+            }
+        }
+
+        return aids;
     }
 
     public static String getUSIMAID() throws CardException {
-        if (DEBUG) {
-            System.out.println(LoggingUtils.formatDebugMessage("reading EF_DIR file"));
-        }
+        ArrayList<String> aids = getAIDs();
 
-        SimCardFile file;
-
-        try {
-            if (SIMLibrary.third_gen_apdu) {
-                file = FileManagement.selectPath("2f00");
-            } else {
-                file = FileManagement.selectPath("3f002f00");
-            }
-        } catch (FileNotFoundException e) {
-            if (DEBUG) {
-                System.out.println(LoggingUtils.formatDebugMessage("FileNotFoundException: " + e.getMessage()));
-            }
-            return null;
-        }
-
-        if (null != file) { // in case there's a problem reading a file we don't wanna throw exception but rather continue with other files/actions
-            if (file instanceof SimCardLinearFixedFile) {
-                byte[] recordContent = ((SimCardLinearFixedFile) file).getFirstRecord();
-                if (null != recordContent) {
-                    /* FIXME: no AID present case is not implemented (all 0xFF) */
-                    byte[] aid_data = TLVToolkit.getTLV(recordContent, (byte) 0x4F);
-                    if (null != aid_data) {
-                        byte[] aid = Arrays.copyOfRange(aid_data, 2, 2 + aid_data[1]);
-                        return HexToolkit.toString(aid);
-                    } else {
-                        throw new CardException("EF_DIR content malformed or empty, perhaps this card does NOT support 3G APDUs?");
-                    }
-                }
+        for (String aid: aids) {
+            if (aid.startsWith("A0000000871002")) {
+                return aid;
             }
         }
 

@@ -16,7 +16,7 @@ public class HexToolkit {
         return (byte) (Integer.parseInt(byteString, 16) & 0xff);
     }
 
-    public static String toString(byte data[], int offset, int len) {
+    public static String toString(byte[] data, int offset, int len) {
         if (null == data) {
             return null;
         }
@@ -47,14 +47,14 @@ public class HexToolkit {
         return result.toString();
     }
 
-    public static String toString(byte data[]) {
+    public static String toString(byte[] data) {
         if (null == data) {
             return null;
         }
         return toString(data, 0, data.length);
     }
 
-    public static String toText(byte data[]) {
+    public static String toText(byte[] data) {
         StringBuilder text = new StringBuilder();
 
         for (int i = 0; i < data.length; i++) {
