@@ -42,7 +42,7 @@ public class SIMTester {
     public static String EF_DIR = null;
     public static String AUTH = null;
     public static String AppDeSelect = null;
-    private static final String version = "SIMTester v2.0.0, 2022-10-21";
+    private static final String version = "SIMTester v2.0.0, 2022-10-25";
     private static Fuzzer _fuzzer = null;
     private static TARScanner _tarscanner = null;
     private static CSVWriter _writer = null;
