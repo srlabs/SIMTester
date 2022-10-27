@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1 (27/10/2022)
+### Changed
+- Fix the java version check
+- Remove deprecated usage of getStackTraceElement in LoggingUtils.java
+
 ## 2.0.0 (25/10/2022)
 ### Added
 - Print execution time

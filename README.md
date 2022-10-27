@@ -1,6 +1,6 @@
 # SIMTester
 
-SIMtester assess SIM card security in two dimensions:
+SIMTester assess SIM card security in two dimensions:
 
 - **Cryptanalytic attack surface**: Collect cryptographic signatures and encryptions of known plaintexts
 - **Application attack surface**: Generate a list of all application identifiers (TAR) and find "unprotected" (MSL=0) applications
@@ -19,7 +19,7 @@ SIMtester assess SIM card security in two dimensions:
 java -jar SIMTester.jar <arguments>
 ```
 
-In case Java has problems to find the libpcsclite shared object, just submit the path manually:
+In case Java has problems to find the libpcsclite shared object, just submit the path manually (adjust it to your system):
 
 ```bash
 java -Dsun.security.smartcardio.library=/lib/x86_64-linux-gnu/libpcsclite.so.1 -jar SIMTester.jar <arguments>

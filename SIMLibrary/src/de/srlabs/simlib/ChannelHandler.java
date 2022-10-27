@@ -44,13 +44,9 @@ public class ChannelHandler {
 
             version = m.group(1);
 
-            if (m.groupCount() == 1) { // got version only
-                patchversion = 0;
-            } else { // got version and patch
-                patchversion = Integer.valueOf(m.group(2));
-            }
+            patchversion = m.group(2) == null ? 0: Integer.parseInt(m.group(2));
 
-            trueCardReset = (Helpers.versionCompare(version, "1.8.0") >= 0 && patchversion >= 20); // Java 1.8.0_20 and above have the correct behavior by default
+            trueCardReset = (Helpers.versionCompare(version, "1.8.0") > 0 || (Helpers.versionCompare(version, "1.8.0") == 0 && patchversion >= 20)); // Java 1.8.0_20 and above have the correct behavior by default
         } else {
             System.err.println("Unable to detect Java version correctly, setting invertCardReset to TRUE and trying to continue, do not be surprised if card resets won't work!");
             System.setProperty("sun.security.smartcardio.invertCardReset", "true");
