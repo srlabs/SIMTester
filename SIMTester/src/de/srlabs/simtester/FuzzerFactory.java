@@ -149,6 +149,8 @@ public class FuzzerFactory {
             add("RFM:514F43");
             add("RFM:524144");
             add("RFM:524648");
+            add("RFM:524A49");
+            add("RFM:54454C");
             add("RFM:524F4D");
             add("RFM:533347");
             add("SAT:534054");
@@ -179,6 +181,7 @@ public class FuzzerFactory {
             add("RFM:B00041");
             add("RFM:B00042");
             add("RFM:B00050");
+            add("RFM:B000F1");
             add("RFM:B00120");
             add("RFM:B00140");
             add("RFM:B00141");
@@ -203,6 +206,9 @@ public class FuzzerFactory {
             add("WIB:BFFFFF");
             add("RFM:C00000");
             add("RFM:C0013D");
+            add("RFM:C001AA");
+            add("RFM:C001AB");
+            add("RFM:C001AD");
             add("RFM:D00003");
             add("RFM:EED200");
             add("RFM:EED201");
@@ -210,14 +216,6 @@ public class FuzzerFactory {
             add("RFM:EEE201");
             add("RFM:FFFF01");
             add("RFM:FFFFFF");
-
-            add("RFM:54454C");
-            add("RFM:524A49");
-            add("RFM:64646D");
-            add("RFM:B000F1");
-            add("RFM:C001AA");
-            add("RFM:C001AB");
-            add("RFM:C001AD");
         }
     };
 }
